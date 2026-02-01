@@ -468,7 +468,7 @@ function updateStaleUI(){
 }
 
 /* ---------- CHART (TradingView embed) ---------- */
-let currentInterval = "60"; // default 1h
+let currentInterval = localStorage.getItem("btcChartTF") || "60"; // default 1h
 let chartHidden = false;
 
 function setActiveTf(interval){
