@@ -1,12 +1,18 @@
 <!--
-Version: 1.15
+Version: 1.16
 Date: 2026-02-01
 Updated:
-- Kept all existing features intact (weather marquee, multi-timezones, stale detection, swap display, refresh, chart)
-- Removed cents from BTC price display (USD integer only)
-- Persisted TradingView chart timeframe (5m/30m/1h/4h) across refresh via localStorage
-- Persisted chart hide/show state via localStorage
-- Standardized source header: Version + Date + Updated + Author at very top
+- Removed top empty space; placed swap (price/time) button inline to the right of "Bitcoin Dashboard"
+- Removed "Today (MT)" label; show only the Mountain Time date/time value
+- Weather marquee weekday switched to 3-letter format (Mon/Tue/Wed/Thu/Fri/Sat/Sun)
+- Added brighter marquee filler message before/around weather loads: "오늘도 행복하자 / Let’s be happy today."
+- Removed status indicator ("● Connecting…", "● LIVE", etc.) entirely
+- Replaced Refresh button with circular arrow refresh icon; aligned to the far-right of the "Updated:" row
+- Removed always-on secondary time under price; improved swap mode typography:
+  - When primary is TIME: primary font slightly smaller to fit one line
+  - Secondary "BTC: $xx,xxx" font increased ~1.5x
+- Timezone list updated: "US Eastern" -> "New York", removed "US Pacific", "Korea (Seoul)" -> "Seoul"
+- Kept all existing features (weather, timezones, stale detection, chart with TF + hide/show persistence)
 Author: lgtaegi
 -->
 
@@ -26,8 +32,9 @@ Author: lgtaegi
   --muted:#b3b3b3;
   --muted2:#9a9a9a;
   --green:#0f6d3a;
-  --stale:#7a8a4a; /* toned-down olive/green for stale */
+  --stale:#7a8a4a;
   --error:#ff6b6b;
+  --bright:#eaeaea; /* brighter for 행복하자 line */
 }
 
 body{
@@ -47,11 +54,17 @@ body{
   border-radius:14px;
 }
 
-.topbar{
+.header{
   display:flex;
-  justify-content:space-between;
   align-items:center;
+  justify-content:space-between;
   gap:12px;
+  margin:0 0 10px; /* no top gap */
+}
+
+h1{
+  margin:0; /* remove extra space above */
+  font-size:20px;
 }
 
 .swap-btn{
@@ -63,25 +76,36 @@ body{
   color:var(--muted);
   cursor:pointer;
 }
-.swap-btn:hover{
-  background:rgba(255,255,255,0.08);
-}
-
-h1{
-  margin:6px 0 10px;
-  font-size:20px;
-}
+.swap-btn:hover{ background:rgba(255,255,255,0.08); }
 
 .primary{
   font-size:44px;
   font-weight:800;
   margin:14px 0 2px;
   color:var(--green);
+  letter-spacing:0.2px;
+  white-space:nowrap;
+}
+
+.primary.is-stale{
+  color:var(--stale);
+  animation:stalePulse 1.4s ease-in-out infinite;
+}
+
+@keyframes stalePulse{
+  0%,100%{opacity:1}
+  50%{opacity:.55}
 }
 
 .secondary{
   font-size:13px;
   color:var(--muted2);
+}
+
+/* bigger secondary when showing BTC under time */
+.secondary.big{
+  font-size:19.5px; /* ~1.5x */
+  color:var(--muted);
 }
 
 .tinybar{
@@ -97,7 +121,7 @@ h1{
 .stale-age{
   font-size:11px;
   color:var(--muted);
-  display:none; /* hidden until needed */
+  display:none;
 }
 
 /* weather marquee */
@@ -124,6 +148,11 @@ h1{
   gap:6px;
 }
 
+.filler{
+  color:var(--bright);
+  opacity:0.95;
+}
+
 @keyframes scroll-left{
   from{transform:translateX(100%);}
   to{transform:translateX(-100%);}
@@ -131,28 +160,14 @@ h1{
 
 @media (prefers-reduced-motion: reduce){
   .weather-track{animation:none;}
-}
-
-/* stale pulse on primary display only (subtle) */
-@keyframes stalePulse{
-  0%,100%{opacity:1}
-  50%{opacity:.55}
-}
-
-.primary.is-stale{
-  color:var(--stale);
-  animation:stalePulse 1.4s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce){
   .primary.is-stale{animation:none;}
 }
 
 .row{
   display:flex;
+  align-items:center;
   gap:12px;
   flex-wrap:wrap;
-  align-items:center;
 }
 
 .pill{
@@ -163,13 +178,34 @@ h1{
   color:var(--muted);
 }
 
-button{
-  padding:10px 14px;
+.updated-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  width:100%;
+}
+
+.refresh-icon-btn{
+  width:34px;
+  height:34px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
   border-radius:10px;
   border:1px solid var(--border);
   background:rgba(255,255,255,0.04);
-  color:var(--text);
+  color:var(--muted);
   cursor:pointer;
+  padding:0;
+}
+.refresh-icon-btn:hover{ background:rgba(255,255,255,0.08); }
+.refresh-icon-btn:active{ transform:translateY(1px); }
+
+.refresh-icon{
+  width:16px;
+  height:16px;
+  display:block;
 }
 
 .times{
@@ -244,11 +280,10 @@ button{
   border:1px solid var(--border);
   background:rgba(255,255,255,0.03);
   color:var(--muted);
+  cursor:pointer;
 }
 
-.tf button:hover{
-  background:rgba(255,255,255,0.06);
-}
+.tf button:hover{ background:rgba(255,255,255,0.06); }
 
 .tf button.active{
   background:rgba(255,255,255,0.10);
@@ -261,7 +296,6 @@ button{
   overflow:hidden;
 }
 
-/* chart toggle button under chart */
 .chart-toggle{
   width:100%;
   margin-top:8px;
@@ -271,10 +305,9 @@ button{
   border:1px solid var(--border);
   background:rgba(255,255,255,0.03);
   color:var(--muted);
+  cursor:pointer;
 }
-.chart-toggle:hover{
-  background:rgba(255,255,255,0.06);
-}
+.chart-toggle:hover{ background:rgba(255,255,255,0.06); }
 
 /* hidden state */
 .right-pane.is-hidden #tvChart,
@@ -290,47 +323,56 @@ button{
 <body>
 <div class="card">
 
-  <div class="topbar">
-    <div style="height:1px;"></div>
+  <!-- 1) Title + swap button inline -->
+  <div class="header">
+    <h1>Bitcoin Dashboard</h1>
     <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
   </div>
 
-  <h1>Bitcoin Dashboard</h1>
-
+  <!-- 2) Remove 'Today (MT)' text: show value only -->
   <div class="tinybar">
-    <span id="todayMT">Today (MT): -</span>
+    <span id="todayMT">-</span>
     <span id="staleAge" class="stale-age">Last update: -</span>
   </div>
 
+  <!-- 3) Weather marquee with filler -->
   <div class="weather-marquee">
     <div id="weatherTrack" class="weather-track">
-      <span class="weather-item">Loading weather…</span>
+      <span class="weather-item filler">오늘도 행복하자 / Let’s be happy today.</span>
+      <span class="weather-item filler">오늘도 행복하자 / Let’s be happy today.</span>
+      <span class="weather-item filler">오늘도 행복하자 / Let’s be happy today.</span>
     </div>
   </div>
 
   <div class="main-grid">
-    <!-- LEFT: existing dashboard -->
     <div class="left-pane">
-      <div class="row">
-        <div id="status" class="pill">● Connecting…</div>
-        <div id="updated" class="pill">Last updated: -</div>
-        <button id="refresh">Refresh</button>
+      <!-- 4) Remove Connecting/LIVE pill entirely (no status row).
+              5) Updated + refresh icon aligned right -->
+      <div class="updated-row">
+        <div id="updated" class="pill">Updated: -</div>
+
+        <button id="refreshBtn" class="refresh-icon-btn" title="Refresh">
+          <!-- circular arrow icon (inline SVG) -->
+          <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
 
       <div id="primaryDisplay" class="primary">-</div>
       <div id="secondaryDisplay" class="secondary">-</div>
 
+      <!-- 7) Timezone list updated -->
       <div class="times">
-        <div class="time-row"><span>Salt Lake City (MT)</span><span id="tMT">-</span></div>
-        <div class="time-row"><span>US Eastern</span><span id="tET">-</span></div>
-        <div class="time-row"><span>US Pacific</span><span id="tPT">-</span></div>
-        <div class="time-row"><span>Korea (Seoul)</span><span id="tKR">-</span></div>
+        <div class="time-row"><span>Salt Lake City</span><span id="tMT">-</span></div>
+        <div class="time-row"><span>New York</span><span id="tNY">-</span></div>
+        <div class="time-row"><span>Seoul</span><span id="tKR">-</span></div>
       </div>
 
       <div id="error" class="err"></div>
     </div>
 
-    <!-- RIGHT: chart -->
     <div id="rightPane" class="right-pane">
       <div class="chart-card">
         <div class="chart-head">
@@ -358,33 +400,42 @@ button{
 const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
 const WX_URL="https://api.open-meteo.com/v1/forecast?latitude=40.7608&longitude=-111.8910&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America/Denver";
 
-/* stale thresholds */
 const WARN_AFTER_MS = 45_000;
 const STALE_AFTER_MS = 60_000;
 
-/* chart persistence keys */
 const TF_KEY = "btcChartTF";
 const CHART_HIDDEN_KEY = "btcChartHidden";
 
-let isPricePrimary=true;
-let latestPrice="-";
+const FILLER_KO = "오늘도 행복하자";
+const FILLER_EN = "Let’s be happy today.";
+
+/* ---------- STATE ---------- */
+let isPricePrimary = true;     // true => primary shows PRICE, false => primary shows TIME (MT)
+let latestPrice = "-";
 let lastGoodPriceUpdate = 0;
 
-/* Load saved chart state */
 let currentInterval = localStorage.getItem(TF_KEY) || "60";
 let chartHidden = (localStorage.getItem(CHART_HIDDEN_KEY) === "1");
 
 /* ---------- HELPERS ---------- */
-const fmtTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
-const fmtDateTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"short",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
+const fmtTime = (tz) => new Intl.DateTimeFormat("en-US", {
+  timeZone: tz,
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true
+}).format(new Date());
 
-function dayInitial(dateStr){
-  const d=new Date(dateStr+"T00:00:00");
-  return ["Su","M","T","W","Th","F","Sa"][d.getDay()];
-}
-function mdDate(dateStr){
-  return dateStr.slice(5).replace("-", "/"); // "MM/DD"
-}
+const fmtDateTimeNoLabel = (tz) => new Intl.DateTimeFormat("en-US", {
+  timeZone: tz,
+  weekday: "short",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  hour12: true
+}).format(new Date());
 
 function fmtAgo(ms){
   const s = Math.max(0, Math.floor(ms/1000));
@@ -393,80 +444,120 @@ function fmtAgo(ms){
   return `${m}m ${String(r).padStart(2,"0")}s ago`;
 }
 
+/* 6) Typography rules for swap modes */
+function applySwapTypography(){
+  if(isPricePrimary){
+    // Price is primary (big). Secondary hidden (no MT time under price).
+    primaryDisplay.style.fontSize = "44px";
+    secondaryDisplay.classList.remove("big");
+    secondaryDisplay.style.display = "none";
+  } else {
+    // Time is primary: slightly smaller so it fits one line.
+    primaryDisplay.style.fontSize = "36px";
+    secondaryDisplay.classList.add("big");
+    secondaryDisplay.style.display = "block";
+  }
+}
+
 function renderDisplays(){
   if(isPricePrimary){
-    primaryDisplay.textContent=latestPrice;
-    secondaryDisplay.textContent="Time (MT): "+fmtTime("America/Denver");
-  }else{
-    primaryDisplay.textContent=fmtTime("America/Denver");
-    secondaryDisplay.textContent="BTC: "+latestPrice;
+    primaryDisplay.textContent = latestPrice;
+    secondaryDisplay.textContent = ""; // hidden
+  } else {
+    const mt = fmtTime("America/Denver");
+    primaryDisplay.textContent = mt;
+    secondaryDisplay.textContent = "BTC: " + latestPrice;
   }
 }
 
 /* ---------- WEATHER ---------- */
-const wxIcon=c=>{
-  c=Number(c);
-  if(c===0) return "☀️";
-  if(c<=3) return "☁️";
-  if(c<=67) return "🌧️";
-  if(c<=86) return "❄️";
-  if(c>=95) return "⛈️";
+const wxIcon = (c) => {
+  c = Number(c);
+  if(c === 0) return "☀️";
+  if(c <= 3) return "☁️";
+  if(c <= 67) return "🌧️";
+  if(c <= 86) return "❄️";
+  if(c >= 95) return "⛈️";
   return "🌤️";
 };
 
+function dayShort3(dateStr){
+  // dateStr "YYYY-MM-DD" -> Mon/Tue/...
+  const d = new Date(dateStr + "T00:00:00");
+  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+}
+function mdDate(dateStr){
+  return dateStr.slice(5).replace("-", "/"); // MM/DD
+}
+
+/* Build marquee content: include filler to prevent "empty gaps" */
+function buildMarquee(itemsHtml){
+  const filler = `
+    <span class="weather-item filler">${FILLER_KO} / ${FILLER_EN}</span>
+    <span class="weather-item filler">${FILLER_KO} / ${FILLER_EN}</span>
+  `;
+  // Repeat sequence to keep continuous scroll
+  weatherTrack.innerHTML = (itemsHtml + filler + itemsHtml + filler);
+}
+
 async function fetchWeather(){
   try{
-    const r=await fetch(WX_URL);
-    const d=await r.json();
-    const days=d.daily.time.slice(0,7);
+    // While loading, ensure filler is present (keeps marquee non-empty)
+    buildMarquee(`<span class="weather-item filler">${FILLER_KO} / ${FILLER_EN}</span>`);
 
-    weatherTrack.innerHTML =
-      days.map((day,i)=>`
-        <span class="weather-item">
-          ${dayInitial(day)} (${mdDate(day)})
-          ${wxIcon(d.daily.weather_code[i])}
-          ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
-        </span>
-      `).join("") + weatherTrack.innerHTML;
+    const r = await fetch(WX_URL, { cache: "no-store" });
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const days = d.daily.time.slice(0,7);
+
+    const items = days.map((day,i)=>`
+      <span class="weather-item">
+        ${dayShort3(day)} (${mdDate(day)})
+        ${wxIcon(d.daily.weather_code[i])}
+        ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
+      </span>
+    `).join("");
+
+    buildMarquee(items);
   }catch(e){
-    // quiet
+    // If weather fails, keep filler only
+    buildMarquee(`<span class="weather-item filler">${FILLER_KO} / ${FILLER_EN}</span>`);
   }
 }
 
 /* ---------- PRICE ---------- */
 async function fetchPrice(){
   try{
-    const r=await fetch(PRICE_URL,{cache:"no-store"});
+    const r = await fetch(PRICE_URL, { cache: "no-store" });
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j=await r.json();
+    const j = await r.json();
 
-    // ✅ cents removed
-    latestPrice=new Intl.NumberFormat("en-US",{
-      style:"currency",
-      currency:"USD",
-      maximumFractionDigits:0
-    }).format(j.data.amount);
-
-    updated.textContent="Updated: "+fmtTime("America/Denver")+" (MT)";
-    status.textContent="● LIVE";
-    error.textContent="";
+    // cents removed
+    latestPrice = new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0
+    }).format(j?.data?.amount);
 
     lastGoodPriceUpdate = Date.now();
+
+    updated.textContent = "Updated: " + fmtTime("America/Denver") + " (MT)";
+    error.textContent = "";
+
     renderDisplays();
     updateStaleUI();
   }catch(e){
-    status.textContent = "○ Retrying";
     error.textContent = "Error: " + (e?.message || String(e));
   }
 }
 
-/* ---------- TIME ---------- */
+/* ---------- TIMEZONES ---------- */
 function updateTime(){
-  todayMT.textContent="Today (MT): "+fmtDateTime("America/Denver");
-  tMT.textContent=fmtTime("America/Denver");
-  tET.textContent=fmtTime("America/New_York");
-  tPT.textContent=fmtTime("America/Los_Angeles");
-  tKR.textContent=fmtTime("Asia/Seoul");
+  todayMT.textContent = fmtDateTimeNoLabel("America/Denver");
+  tMT.textContent = fmtTime("America/Denver");
+  tNY.textContent = fmtTime("America/New_York");
+  tKR.textContent = fmtTime("Asia/Seoul");
+
   renderDisplays();
 }
 
@@ -479,17 +570,13 @@ function updateStaleUI(){
   if(elapsed >= WARN_AFTER_MS){
     staleAge.style.display = "inline";
     staleAge.textContent = "Last update: " + fmtAgo(elapsed);
-  }else{
+  } else {
     staleAge.style.display = "none";
   }
 
   if(elapsed >= STALE_AFTER_MS){
-    status.textContent = "○ STALE (delay)";
     primaryDisplay.classList.add("is-stale");
-  }else{
-    if(lastGoodPriceUpdate){
-      status.textContent = "● LIVE";
-    }
+  } else {
     primaryDisplay.classList.remove("is-stale");
   }
 }
@@ -547,7 +634,7 @@ function setChartHidden(next){
 
   if(!chartHidden){
     if (window.TradingView && TradingView.widget) buildTVChart(currentInterval);
-  }else{
+  } else {
     tvChart.innerHTML = "";
   }
 }
@@ -561,19 +648,24 @@ toggleChartBtn.addEventListener("click", ()=>{
 });
 
 /* ---------- EVENTS ---------- */
-swapBtn.addEventListener("click",()=>{
-  isPricePrimary=!isPricePrimary;
+swapBtn.addEventListener("click", ()=>{
+  isPricePrimary = !isPricePrimary;
+  applySwapTypography();
   renderDisplays();
   updateStaleUI();
 });
 
-refresh.addEventListener("click",()=>{
+refreshBtn.addEventListener("click", ()=>{
   fetchPrice();
   fetchWeather();
 });
 
 /* ---------- START ---------- */
 function start(){
+  // initial typography & render state
+  applySwapTypography();
+  renderDisplays();
+
   updateTime();
   fetchPrice();
   fetchWeather();
@@ -596,10 +688,10 @@ function start(){
     }, 150);
   }
 
-  setInterval(updateTime,1000);
-  setInterval(fetchPrice,5000);
-  setInterval(fetchWeather,10*60*1000);
-  setInterval(updateStaleUI,1000);
+  setInterval(updateTime, 1000);
+  setInterval(fetchPrice, 5000);
+  setInterval(fetchWeather, 10 * 60 * 1000);
+  setInterval(updateStaleUI, 1000);
 }
 
 start();
