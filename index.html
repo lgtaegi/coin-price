@@ -203,6 +203,11 @@ let latestPrice="-";
 const fmtTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
 const fmtDateTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"short",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
 
+function dayInitial(dateStr){
+  const d=new Date(dateStr+"T00:00:00");
+  return ["Su","M","T","W","Th","F","Sa"][d.getDay()];
+}
+
 function renderDisplays(){
   if(isPricePrimary){
     primaryDisplay.textContent=latestPrice;
@@ -228,12 +233,15 @@ async function fetchWeather(){
   const r=await fetch(WX_URL);
   const d=await r.json();
   const days=d.daily.time.slice(0,7);
-  weatherTrack.innerHTML=days.map((_,i)=>`
-    <span class="weather-item">
-      ${wxIcon(d.daily.weather_code[i])}
-      ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
-    </span>
-  `).join("") + weatherTrack.innerHTML;
+
+  weatherTrack.innerHTML =
+    days.map((day,i)=>`
+      <span class="weather-item">
+        ${dayInitial(day)}
+        ${wxIcon(d.daily.weather_code[i])}
+        ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
+      </span>
+    `).join("") + weatherTrack.innerHTML;
 }
 
 /* ---------- PRICE ---------- */
