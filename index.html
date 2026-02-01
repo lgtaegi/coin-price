@@ -1,10 +1,10 @@
 <!--
-Version: 1.18
+Version: 1.19
 Date: 2026-02-01
 Updated:
-- Added a large pixel snake “chasing” animation behind the runner inside the weather marquee (no game logic, pure animation)
-- Kept seamless marquee (no blank time) and 6-hour weather caching/refresh
-- Preserved existing layout and all features (swap, stale, refresh icon, timezones, chart TF + hide/show persistence, cents removed)
+- Added large header animation area (uses empty space right of title) without changing overall layout
+- Header animation: half-buried Bitcoin coin + pixel miner swinging pickaxe + large threatening snake (SVG + CSS)
+- Kept all existing features: seamless marquee + pixel chase line, 6-hour weather cache/refresh, swap, stale, refresh icon, timezones, chart TF + hide/show persistence, cents removed
 Author: lgtaegi
 -->
 
@@ -28,22 +28,26 @@ Author: lgtaegi
   --error:#ff6b6b;
   --bright:#f3f3f3;
 
-  /* 8-color dot palette (runner) */
-  --p1:#1a1a1a; /* outline */
-  --p2:#f2c9a0; /* skin */
-  --p3:#2f6fb3; /* shirt */
-  --p4:#1f4f2a; /* pants */
-  --p5:#c9a23a; /* sword */
-  --p6:#8b5a2b; /* hair */
-  --p7:#e7e7e7; /* highlight */
-  --p8:#3b3b3b; /* shadow */
+  /* runner palette */
+  --p1:#1a1a1a; --p2:#f2c9a0; --p3:#2f6fb3; --p4:#1f4f2a;
+  --p5:#c9a23a; --p6:#8b5a2b; --p7:#e7e7e7; --p8:#3b3b3b;
 
-  /* Snake palette (kept within same feel; still “8-ish” vibe) */
-  --s1:#0e2b17; /* dark outline */
-  --s2:#1d5a31; /* body */
-  --s3:#2e8b4d; /* highlight */
-  --s4:#c94a3a; /* tongue */
-  --s5:#111111; /* eye */
+  /* snake palette */
+  --s1:#0e2b17; --s2:#1d5a31; --s3:#2e8b4d; --s4:#c94a3a; --s5:#111111;
+
+  /* header animation palette */
+  --hx1:#111111;  /* outline */
+  --hx2:#f7931a;  /* coin */
+  --hx3:#d97b12;  /* coin shadow */
+  --hx4:#7a5a2a;  /* ground */
+  --hx5:#5e4520;  /* ground dark */
+  --hx6:#2f6fb3;  /* miner shirt */
+  --hx7:#1f4f2a;  /* miner pants */
+  --hx8:#f2c9a0;  /* miner skin */
+  --hx9:#c9a23a;  /* pickaxe */
+  --hx10:#1d5a31; /* big snake body */
+  --hx11:#0e2b17; /* big snake outline */
+  --hx12:#e7e7e7; /* sparkle */
 }
 
 body{
@@ -63,6 +67,7 @@ body{
   border-radius:14px;
 }
 
+/* ---------- HEADER LAYOUT (title + swap left, animation right) ---------- */
 .header{
   display:flex;
   align-items:center;
@@ -71,7 +76,14 @@ body{
   margin:0 0 10px;
 }
 
-h1{ margin:0; font-size:20px; }
+.header-left{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex:0 0 auto;
+}
+
+h1{ margin:0; font-size:20px; white-space:nowrap; }
 
 .swap-btn{
   font-size:12px;
@@ -81,9 +93,82 @@ h1{ margin:0; font-size:20px; }
   background:rgba(255,255,255,0.04);
   color:var(--muted);
   cursor:pointer;
+  flex:0 0 auto;
 }
 .swap-btn:hover{ background:rgba(255,255,255,0.08); }
 
+/* right animation box: uses the “big empty space” */
+.header-anim{
+  flex:1 1 auto;
+  min-width:140px;
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+}
+
+.header-anim svg{
+  width:min(320px, 100%);
+  height:34px;           /* keep layout compact */
+  display:block;
+  image-rendering:pixelated;
+  shape-rendering:crispEdges;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,0.06);
+  background:rgba(255,255,255,0.02);
+}
+
+/* hide animation on very small widths */
+@media (max-width: 420px){
+  .header-anim{ display:none; }
+}
+
+/* ---------- HEADER ANIMATION KEYFRAMES ---------- */
+@keyframes minerBounce{
+  0%,100%{ transform:translateY(0); }
+  50%{ transform:translateY(-1px); }
+}
+@keyframes pickSwing{
+  0%{ transform:rotate(-18deg); }
+  45%{ transform:rotate(35deg); }
+  70%{ transform:rotate(5deg); }
+  100%{ transform:rotate(-18deg); }
+}
+@keyframes coinJiggle{
+  0%,100%{ transform:translateX(0); }
+  40%{ transform:translateX(0); }
+  50%{ transform:translateX(1px); }
+  60%{ transform:translateX(0); }
+}
+@keyframes sparkle{
+  0%,70%{ opacity:0; transform:scale(0.7); }
+  80%{ opacity:1; transform:scale(1); }
+  100%{ opacity:0; transform:scale(0.7); }
+}
+@keyframes snakeWave{
+  0%,100%{ transform:translateX(0) translateY(0); }
+  25%{ transform:translateX(-2px) translateY(1px); }
+  50%{ transform:translateX(0) translateY(-1px); }
+  75%{ transform:translateX(2px) translateY(1px); }
+}
+@keyframes snakeHeadThreat{
+  0%,100%{ transform:translateX(0) rotate(0deg); }
+  50%{ transform:translateX(-1px) rotate(-3deg); }
+}
+
+/* apply to svg internal groups */
+.h-miner{ animation:minerBounce 0.55s steps(2) infinite; transform-origin: 120px 28px; }
+.h-pick{ animation:pickSwing 0.85s steps(3) infinite; transform-origin: 132px 16px; }
+.h-coin{ animation:coinJiggle 0.85s steps(3) infinite; transform-origin: 60px 28px; }
+.h-spark{ animation:sparkle 0.85s linear infinite; transform-origin: 88px 14px; }
+.h-snake{ animation:snakeWave 1.2s steps(4) infinite; transform-origin: 210px 18px; }
+.h-snake-head{ animation:snakeHeadThreat 1.2s steps(4) infinite; transform-origin: 286px 14px; }
+
+/* reduced motion */
+@media (prefers-reduced-motion: reduce){
+  .h-miner,.h-pick,.h-coin,.h-spark,.h-snake,.h-snake-head{ animation:none !important; }
+}
+
+/* ---------- MAIN STYLES (unchanged from prior) ---------- */
 .primary{
   font-size:44px;
   font-weight:800;
@@ -92,15 +177,8 @@ h1{ margin:0; font-size:20px; }
   letter-spacing:0.2px;
   white-space:nowrap;
 }
-
-@keyframes stalePulse{
-  0%,100%{opacity:1}
-  50%{opacity:.55}
-}
-.primary.is-stale{
-  color:var(--stale);
-  animation:stalePulse 1.4s ease-in-out infinite;
-}
+@keyframes stalePulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
+.primary.is-stale{ color:var(--stale); animation:stalePulse 1.4s ease-in-out infinite; }
 
 .secondary{ font-size:13px; color:var(--muted2); }
 .secondary.big{ font-size:19.5px; color:var(--muted); }
@@ -114,14 +192,9 @@ h1{ margin:0; font-size:20px; }
   flex-wrap:wrap;
   align-items:baseline;
 }
+.stale-age{ font-size:11px; color:var(--muted); display:none; }
 
-.stale-age{
-  font-size:11px;
-  color:var(--muted);
-  display:none;
-}
-
-/* ---------- seamless weather marquee ---------- */
+/* marquee */
 .weather-marquee{
   overflow:hidden;
   border-top:1px solid var(--border);
@@ -130,19 +203,13 @@ h1{ margin:0; font-size:20px; }
   margin-bottom:10px;
   position:relative;
 }
-
 .weather-track{
   display:flex;
   width:fit-content;
   will-change:transform;
   animation:marquee 84s linear infinite;
 }
-
-@keyframes marquee{
-  0%{ transform:translateX(0); }
-  100%{ transform:translateX(-50%); }
-}
-
+@keyframes marquee{ 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
 .seg{
   display:inline-flex;
   gap:28px;
@@ -151,7 +218,6 @@ h1{ margin:0; font-size:20px; }
   align-items:center;
   flex:0 0 auto;
 }
-
 .weather-item{
   display:inline-flex;
   align-items:center;
@@ -159,119 +225,49 @@ h1{ margin:0; font-size:20px; }
   font-size:11px;
   color:var(--muted);
 }
+.filler{ color:var(--bright); opacity:0.95; }
 
-.filler{
-  color:var(--bright);
-  opacity:0.95;
-}
-
-/* ---------- Runner + Snake bundle ---------- */
-.chase{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-}
-
-.chase-stack{
-  position:relative;
-  width:120px;          /* big snake behind */
-  height:22px;          /* same line height */
-  display:inline-block;
-}
-
+/* chase line components (kept) */
+.chase{ display:inline-flex; align-items:center; gap:8px; }
+.chase-stack{ position:relative; width:120px; height:22px; display:inline-block; }
 .snake{
-  position:absolute;
-  left:0;
-  top:2px;
-  width:120px;
-  height:18px;
-  opacity:0.9;
-  image-rendering:pixelated;
-  shape-rendering:crispEdges;
-  filter:drop-shadow(0 0 0 rgba(0,0,0,0)); /* keep crisp */
+  position:absolute; left:0; top:2px;
+  width:120px; height:18px; opacity:0.9;
+  image-rendering:pixelated; shape-rendering:crispEdges;
   animation:snakeChase 1.1s steps(4) infinite;
 }
-
 @keyframes snakeChase{
-  0%   { transform:translateX(-10px) translateY(0px); }
-  50%  { transform:translateX(-2px) translateY(-1px); }
-  100% { transform:translateX(-10px) translateY(0px); }
+  0%{transform:translateX(-10px) translateY(0)}
+  50%{transform:translateX(-2px) translateY(-1px)}
+  100%{transform:translateX(-10px) translateY(0)}
 }
+.snake .tongue{ animation:tongue 0.55s steps(2) infinite; }
+@keyframes tongue{ 0%,49%{opacity:0} 50%,100%{opacity:1} }
 
-/* tongue flick */
-.snake .tongue{
-  animation:tongue 0.55s steps(2) infinite;
-}
-@keyframes tongue{
-  0%,49%{ opacity:0; }
-  50%,100%{ opacity:1; }
-}
-
-/* runner sits “in front” */
 .runner{
-  position:absolute;
-  right:6px;
-  top:0;
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
+  position:absolute; right:6px; top:0;
+  display:inline-flex; align-items:center; gap:6px;
   z-index:2;
 }
-
-.runner .label{
-  font-size:11px;
-  color:var(--bright);
-  opacity:0.95;
-}
-
-/* ---------- pixel runner SVG animation ---------- */
+.runner .label{ font-size:11px; color:var(--bright); opacity:0.95; }
 .pixel-svg{
-  width:22px;
-  height:22px;
-  image-rendering:pixelated;
-  shape-rendering:crispEdges;
+  width:22px; height:22px;
+  image-rendering:pixelated; shape-rendering:crispEdges;
   display:block;
-  transform:translateY(0);
   animation:runBounce 0.55s steps(2) infinite;
 }
-
-@keyframes runBounce{
-  0%,100%{ transform:translateY(0); }
-  50%{ transform:translateY(-1px); }
-}
-
-.pixel-svg .legA{
-  transform-origin: 8px 18px;
-  animation:legA 0.55s steps(2) infinite;
-}
-.pixel-svg .legB{
-  transform-origin: 12px 18px;
-  animation:legB 0.55s steps(2) infinite;
-}
-@keyframes legA{ 0%,100%{ transform:rotate(10deg); } 50%{ transform:rotate(-12deg);} }
-@keyframes legB{ 0%,100%{ transform:rotate(-10deg);} 50%{ transform:rotate(12deg);} }
-
-.pixel-svg .armSword{
-  transform-origin: 14px 10px;
-  animation:swing 0.85s steps(3) infinite;
-}
-@keyframes swing{
-  0%{ transform:rotate(-10deg); }
-  40%{ transform:rotate(40deg); }
-  70%{ transform:rotate(12deg); }
-  100%{ transform:rotate(-10deg); }
-}
+@keyframes runBounce{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-1px)} }
+.pixel-svg .legA{ transform-origin:8px 18px; animation:legA 0.55s steps(2) infinite; }
+.pixel-svg .legB{ transform-origin:12px 18px; animation:legB 0.55s steps(2) infinite; }
+@keyframes legA{ 0%,100%{transform:rotate(10deg)} 50%{transform:rotate(-12deg)} }
+@keyframes legB{ 0%,100%{transform:rotate(-10deg)} 50%{transform:rotate(12deg)} }
+.pixel-svg .armSword{ transform-origin:14px 10px; animation:swing 0.85s steps(3) infinite; }
+@keyframes swing{ 0%{transform:rotate(-10deg)} 40%{transform:rotate(40deg)} 70%{transform:rotate(12deg)} 100%{transform:rotate(-10deg)} }
 
 @media (prefers-reduced-motion: reduce){
-  .weather-track{ animation:none; }
-  .primary.is-stale{ animation:none; }
-  .pixel-svg{ animation:none; }
-  .pixel-svg .legA, .pixel-svg .legB, .pixel-svg .armSword{ animation:none; }
-  .snake{ animation:none; }
-  .snake .tongue{ animation:none; }
+  .weather-track,.primary.is-stale,.pixel-svg,.pixel-svg .legA,.pixel-svg .legB,.pixel-svg .armSword,.snake,.snake .tongue{ animation:none; }
 }
 
-/* ---------- updated row ---------- */
 .updated-row{
   display:flex;
   align-items:center;
@@ -279,7 +275,6 @@ h1{ margin:0; font-size:20px; }
   gap:12px;
   width:100%;
 }
-
 .pill{
   padding:6px 10px;
   border-radius:999px;
@@ -287,13 +282,9 @@ h1{ margin:0; font-size:20px; }
   font-size:13px;
   color:var(--muted);
 }
-
 .refresh-icon-btn{
-  width:34px;
-  height:34px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
+  width:34px; height:34px;
+  display:inline-flex; align-items:center; justify-content:center;
   border-radius:10px;
   border:1px solid var(--border);
   background:rgba(255,255,255,0.04);
@@ -303,19 +294,15 @@ h1{ margin:0; font-size:20px; }
 }
 .refresh-icon-btn:hover{ background:rgba(255,255,255,0.08); }
 .refresh-icon-btn:active{ transform:translateY(1px); }
-
 .refresh-icon{ width:16px; height:16px; display:block; }
 
-/* ---------- layout ---------- */
 .main-grid{
   display:flex;
   gap:14px;
   align-items:flex-start;
   flex-wrap:wrap;
 }
-
 .left-pane{ flex:1 1 260px; min-width:240px; }
-
 .right-pane{ flex:0 0 230px; width:230px; }
 
 .times{
@@ -325,29 +312,21 @@ h1{ margin:0; font-size:20px; }
   display:grid;
   gap:8px;
 }
-
 .time-row{
   display:flex;
   justify-content:space-between;
   font-size:14px;
   color:var(--muted);
 }
+.err{ color:var(--error); font-size:13px; margin-top:10px; white-space:pre-wrap; }
 
-.err{
-  color:var(--error);
-  font-size:13px;
-  margin-top:10px;
-  white-space:pre-wrap;
-}
-
-/* ---------- chart ---------- */
+/* chart */
 .chart-card{
   border:1px solid var(--border);
   border-radius:12px;
   padding:10px;
   background:rgba(255,255,255,0.02);
 }
-
 .chart-head{
   display:flex;
   justify-content:space-between;
@@ -355,11 +334,8 @@ h1{ margin:0; font-size:20px; }
   gap:8px;
   margin-bottom:8px;
 }
-
 .chart-title{ font-size:12px; color:var(--muted2); }
-
 .tf{ display:flex; gap:6px; }
-
 .tf button{
   padding:5px 8px;
   border-radius:8px;
@@ -370,17 +346,8 @@ h1{ margin:0; font-size:20px; }
   cursor:pointer;
 }
 .tf button:hover{ background:rgba(255,255,255,0.06); }
-.tf button.active{
-  background:rgba(255,255,255,0.10);
-  color:var(--text);
-}
-
-#tvChart{
-  height:170px;
-  border-radius:10px;
-  overflow:hidden;
-}
-
+.tf button.active{ background:rgba(255,255,255,0.10); color:var(--text); }
+#tvChart{ height:170px; border-radius:10px; overflow:hidden; }
 .chart-toggle{
   width:100%;
   margin-top:8px;
@@ -393,7 +360,6 @@ h1{ margin:0; font-size:20px; }
   cursor:pointer;
 }
 .chart-toggle:hover{ background:rgba(255,255,255,0.06); }
-
 .right-pane.is-hidden #tvChart,
 .right-pane.is-hidden .tf{ display:none; }
 </style>
@@ -403,8 +369,103 @@ h1{ margin:0; font-size:20px; }
 <div class="card">
 
   <div class="header">
-    <h1>Bitcoin Dashboard</h1>
-    <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
+    <div class="header-left">
+      <h1>Bitcoin Dashboard</h1>
+      <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
+    </div>
+
+    <!-- NEW: Large header animation using the empty space -->
+    <div class="header-anim" aria-hidden="true">
+      <svg viewBox="0 0 320 34" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+        <!-- ground -->
+        <rect x="0" y="24" width="320" height="10" fill="var(--hx4)"/>
+        <rect x="0" y="28" width="320" height="6" fill="var(--hx5)"/>
+
+        <!-- half-buried coin group -->
+        <g class="h-coin">
+          <!-- coin behind ground (top part visible) -->
+          <g>
+            <rect x="44" y="6" width="48" height="24" rx="2" ry="2" fill="var(--hx2)"/>
+            <rect x="44" y="6" width="48" height="3" fill="var(--hx3)"/>
+            <rect x="44" y="27" width="48" height="3" fill="var(--hx3)"/>
+            <rect x="44" y="6" width="3" height="24" fill="var(--hx3)"/>
+            <rect x="89" y="6" width="3" height="24" fill="var(--hx3)"/>
+            <!-- simple ₿ mark -->
+            <rect x="64" y="10" width="2" height="14" fill="var(--hx1)"/>
+            <rect x="68" y="10" width="2" height="14" fill="var(--hx1)"/>
+            <rect x="58" y="11" width="18" height="2" fill="var(--hx1)"/>
+            <rect x="58" y="16" width="18" height="2" fill="var(--hx1)"/>
+            <rect x="58" y="21" width="18" height="2" fill="var(--hx1)"/>
+            <rect x="58" y="13" width="2" height="8" fill="var(--hx1)"/>
+            <rect x="74" y="13" width="2" height="8" fill="var(--hx1)"/>
+          </g>
+          <!-- cover lower half with ground to appear buried -->
+          <rect x="44" y="24" width="48" height="10" fill="var(--hx4)"/>
+          <rect x="44" y="28" width="48" height="6" fill="var(--hx5)"/>
+        </g>
+
+        <!-- sparkle near impact -->
+        <g class="h-spark">
+          <rect x="98" y="8" width="2" height="2" fill="var(--hx12)"/>
+          <rect x="96" y="10" width="2" height="2" fill="var(--hx12)"/>
+          <rect x="100" y="10" width="2" height="2" fill="var(--hx12)"/>
+          <rect x="98" y="12" width="2" height="2" fill="var(--hx12)"/>
+        </g>
+
+        <!-- miner group -->
+        <g class="h-miner">
+          <!-- body -->
+          <rect x="120" y="10" width="14" height="10" fill="var(--hx6)"/>
+          <rect x="120" y="20" width="14" height="6" fill="var(--hx7)"/>
+          <!-- head -->
+          <rect x="121" y="4" width="12" height="8" fill="var(--hx8)"/>
+          <rect x="121" y="4" width="12" height="2" fill="var(--p6)"/>
+          <!-- legs -->
+          <rect x="121" y="26" width="5" height="4" fill="var(--hx1)"/>
+          <rect x="129" y="26" width="5" height="4" fill="var(--hx1)"/>
+          <!-- back arm -->
+          <rect x="116" y="12" width="4" height="8" fill="var(--hx6)"/>
+          <rect x="116" y="20" width="4" height="3" fill="var(--hx8)"/>
+
+          <!-- pickaxe arm (animated) -->
+          <g class="h-pick">
+            <rect x="134" y="12" width="4" height="8" fill="var(--hx6)"/>
+            <rect x="138" y="18" width="3" height="3" fill="var(--hx8)"/>
+            <!-- handle -->
+            <rect x="141" y="10" width="3" height="14" fill="var(--hx9)"/>
+            <!-- head -->
+            <rect x="137" y="9" width="12" height="3" fill="var(--hx1)"/>
+            <rect x="138" y="10" width="10" height="1" fill="var(--hx9)"/>
+          </g>
+        </g>
+
+        <!-- big snake behind miner -->
+        <g class="h-snake" opacity="0.95">
+          <!-- body segments -->
+          <rect x="176" y="18" width="18" height="4" fill="var(--hx11)"/>
+          <rect x="192" y="16" width="18" height="4" fill="var(--hx11)"/>
+          <rect x="208" y="18" width="18" height="4" fill="var(--hx11)"/>
+          <rect x="224" y="16" width="18" height="4" fill="var(--hx11)"/>
+          <rect x="240" y="18" width="18" height="4" fill="var(--hx11)"/>
+          <rect x="256" y="16" width="18" height="4" fill="var(--hx11)"/>
+
+          <rect x="177" y="19" width="16" height="2" fill="var(--hx10)"/>
+          <rect x="193" y="17" width="16" height="2" fill="var(--hx10)"/>
+          <rect x="209" y="19" width="16" height="2" fill="var(--hx10)"/>
+          <rect x="225" y="17" width="16" height="2" fill="var(--hx10)"/>
+          <rect x="241" y="19" width="16" height="2" fill="var(--hx10)"/>
+          <rect x="257" y="17" width="16" height="2" fill="var(--hx10)"/>
+
+          <!-- head -->
+          <g class="h-snake-head">
+            <rect x="276" y="12" width="18" height="10" fill="var(--hx11)"/>
+            <rect x="277" y="13" width="16" height="8" fill="var(--hx10)"/>
+            <rect x="288" y="15" width="2" height="2" fill="var(--hx1)"/>
+            <rect x="294" y="17" width="4" height="1" fill="var(--s4)"/>
+          </g>
+        </g>
+      </svg>
+    </div>
   </div>
 
   <div class="tinybar">
@@ -423,7 +484,6 @@ h1{ margin:0; font-size:20px; }
     <div class="left-pane">
       <div class="updated-row">
         <div id="updated" class="pill">Updated: -</div>
-
         <button id="refreshBtn" class="refresh-icon-btn" title="Refresh">
           <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
@@ -457,7 +517,6 @@ h1{ margin:0; font-size:20px; }
         </div>
 
         <div id="tvChart"></div>
-
         <button id="toggleChartBtn" class="chart-toggle">Hide chart</button>
       </div>
     </div>
@@ -494,22 +553,12 @@ let chartHidden = (localStorage.getItem(CHART_HIDDEN_KEY) === "1");
 
 /* ---------- HELPERS ---------- */
 const fmtTime = (tz) => new Intl.DateTimeFormat("en-US", {
-  timeZone: tz,
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: true
+  timeZone: tz, hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:true
 }).format(new Date());
 
 const fmtDateTimeNoLabel = (tz) => new Intl.DateTimeFormat("en-US", {
-  timeZone: tz,
-  weekday: "short",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: true
+  timeZone: tz, weekday:"short", month:"2-digit", day:"2-digit",
+  hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:true
 }).format(new Date());
 
 function fmtAgo(ms){
@@ -541,13 +590,10 @@ function renderDisplays(){
   }
 }
 
-/* ---------- PIXEL SNAKE + RUNNER (SVG) ---------- */
+/* ---------- PIXEL CHASE LINE (kept) ---------- */
 function snakeSvg(){
-  // Big pixel snake behind runner (original design).
   return `
     <svg class="snake" viewBox="0 0 120 18" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-      <!-- Body segments (blocky S curve) -->
-      <!-- Outline -->
       <rect x="2"  y="9"  width="10" height="3" fill="var(--s1)"/>
       <rect x="10" y="7"  width="12" height="3" fill="var(--s1)"/>
       <rect x="20" y="9"  width="12" height="3" fill="var(--s1)"/>
@@ -559,7 +605,6 @@ function snakeSvg(){
       <rect x="80" y="9"  width="12" height="3" fill="var(--s1)"/>
       <rect x="90" y="7"  width="12" height="3" fill="var(--s1)"/>
 
-      <!-- Fill -->
       <rect x="3"  y="10" width="8"  height="1" fill="var(--s2)"/>
       <rect x="11" y="8"  width="10" height="1" fill="var(--s2)"/>
       <rect x="21" y="10" width="10" height="1" fill="var(--s2)"/>
@@ -571,12 +616,6 @@ function snakeSvg(){
       <rect x="81" y="10" width="10" height="1" fill="var(--s2)"/>
       <rect x="91" y="8"  width="10" height="1" fill="var(--s2)"/>
 
-      <!-- Highlights -->
-      <rect x="12" y="7" width="6" height="1" fill="var(--s3)"/>
-      <rect x="52" y="7" width="6" height="1" fill="var(--s3)"/>
-      <rect x="92" y="7" width="6" height="1" fill="var(--s3)"/>
-
-      <!-- Head (right side) -->
       <rect x="104" y="6" width="12" height="6" fill="var(--s1)"/>
       <rect x="105" y="7" width="10" height="4" fill="var(--s2)"/>
       <rect x="112" y="8" width="2"  height="1" fill="var(--s5)"/>
@@ -586,7 +625,6 @@ function snakeSvg(){
 }
 
 function runnerSvg(){
-  // Original blocky runner (not copying a specific Minecraft character).
   return `
     <svg class="pixel-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
       <rect x="6" y="2" width="8" height="1" fill="var(--p1)"/>
@@ -640,15 +678,12 @@ function runnerSvg(){
   `;
 }
 
-/* ---------- MARQUEE BUILDERS ---------- */
 function chaseBlockHtml(){
   return `
     <span class="weather-item chase">
       <span class="chase-stack">
         ${snakeSvg()}
-        <span class="runner">
-          ${runnerSvg()}
-        </span>
+        <span class="runner">${runnerSvg()}</span>
       </span>
       <span class="label filler">${FILLER_KO} / ${FILLER_EN}</span>
     </span>
@@ -656,7 +691,6 @@ function chaseBlockHtml(){
 }
 
 function fillerItemsHtml(){
-  // Enough length to avoid blanks immediately.
   return chaseBlockHtml() + chaseBlockHtml() + chaseBlockHtml();
 }
 
@@ -669,9 +703,7 @@ function dayShort3(dateStr){
   const d = new Date(dateStr + "T00:00:00");
   return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
 }
-function mdDate(dateStr){
-  return dateStr.slice(5).replace("-", "/");
-}
+function mdDate(dateStr){ return dateStr.slice(5).replace("-", "/"); }
 
 const wxIcon = (c) => {
   c = Number(c);
@@ -692,8 +724,6 @@ function buildWeatherItemsHtml(daily){
       ${Math.round(daily.temperature_2m_max[i])}/${Math.round(daily.temperature_2m_min[i])}°
     </span>
   `).join("");
-
-  // Long segment: chase + weather + chase + weather
   return chaseBlockHtml() + items + chaseBlockHtml() + items;
 }
 
@@ -720,7 +750,7 @@ async function ensureWeather(){
   }
 
   try{
-    const r = await fetch(WX_URL, { cache: "no-store" });
+    const r = await fetch(WX_URL, { cache:"no-store" });
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const data = await r.json();
 
@@ -735,14 +765,12 @@ async function ensureWeather(){
 /* ---------- PRICE ---------- */
 async function fetchPrice(){
   try{
-    const r = await fetch(PRICE_URL, { cache: "no-store" });
+    const r = await fetch(PRICE_URL, { cache:"no-store" });
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const j = await r.json();
 
     latestPrice = new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0
+      style:"currency", currency:"USD", maximumFractionDigits:0
     }).format(j?.data?.amount);
 
     lastGoodPriceUpdate = Date.now();
@@ -809,23 +837,23 @@ function buildTVChart(interval){
   el.appendChild(inner);
 
   new TradingView.widget({
-    autosize: true,
-    symbol: "COINBASE:BTCUSD",
-    interval: currentInterval,
-    timezone: "America/Denver",
-    theme: "dark",
-    style: "1",
-    locale: "en",
-    enable_publishing: false,
-    hide_legend: true,
-    hide_side_toolbar: true,
-    allow_symbol_change: false,
-    container_id: innerId,
-    save_image: false,
-    studies: [],
-    withdateranges: false,
-    details: false,
-    calendar: false
+    autosize:true,
+    symbol:"COINBASE:BTCUSD",
+    interval:currentInterval,
+    timezone:"America/Denver",
+    theme:"dark",
+    style:"1",
+    locale:"en",
+    enable_publishing:false,
+    hide_legend:true,
+    hide_side_toolbar:true,
+    allow_symbol_change:false,
+    container_id:innerId,
+    save_image:false,
+    studies:[],
+    withdateranges:false,
+    details:false,
+    calendar:false
   });
 }
 
@@ -878,9 +906,7 @@ function start(){
   setChartHidden(chartHidden);
   setActiveTf(currentInterval);
 
-  const bootChart = () => {
-    if(!chartHidden) buildTVChart(currentInterval);
-  };
+  const bootChart = () => { if(!chartHidden) buildTVChart(currentInterval); };
 
   if (window.TradingView && TradingView.widget) {
     bootChart();
@@ -896,8 +922,7 @@ function start(){
   setInterval(updateTime, 1000);
   setInterval(fetchPrice, 5000);
   setInterval(updateStaleUI, 1000);
-
-  setInterval(ensureWeather, WX_REFRESH_MS); // 6-hour weather refresh
+  setInterval(ensureWeather, WX_REFRESH_MS);
 }
 
 start();
