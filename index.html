@@ -85,7 +85,7 @@ h1{
 .stale-age{
   font-size:11px;
   color:var(--muted);
-  display:none; /* hidden until needed */
+  display:none;
 }
 
 /* weather marquee */
@@ -121,7 +121,7 @@ h1{
   .weather-track{animation:none;}
 }
 
-/* stale pulse on primary display only (subtle) */
+/* stale pulse */
 @keyframes stalePulse{
   0%,100%{opacity:1}
   50%{opacity:.55}
@@ -182,7 +182,7 @@ button{
   white-space:pre-wrap;
 }
 
-/* ---------- chart add-on (B option) ---------- */
+/* chart add-on */
 .main-grid{
   display:flex;
   gap:14px;
@@ -248,6 +248,30 @@ button{
   border-radius:10px;
   overflow:hidden;
 }
+
+/* chart toggle button under chart */
+.chart-toggle{
+  width:100%;
+  margin-top:8px;
+  padding:8px 10px;
+  font-size:12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--muted);
+}
+.chart-toggle:hover{
+  background:rgba(255,255,255,0.06);
+}
+
+/* hidden state */
+.right-pane.is-hidden #tvChart,
+.right-pane.is-hidden .tf{
+  display:none;
+}
+.right-pane.is-hidden .chart-title{
+  opacity:0.9;
+}
 </style>
 </head>
 
@@ -273,7 +297,6 @@ button{
   </div>
 
   <div class="main-grid">
-    <!-- LEFT: your existing BTC/time area (unchanged logic) -->
     <div class="left-pane">
       <div class="row">
         <div id="status" class="pill">● Connecting…</div>
@@ -294,8 +317,7 @@ button{
       <div id="error" class="err"></div>
     </div>
 
-    <!-- RIGHT: chart add-on only -->
-    <div class="right-pane">
+    <div id="rightPane" class="right-pane">
       <div class="chart-card">
         <div class="chart-head">
           <div class="chart-title">BTCUSD Mini Chart</div>
@@ -308,12 +330,13 @@ button{
         </div>
 
         <div id="tvChart"></div>
+
+        <button id="toggleChartBtn" class="chart-toggle">Hide chart</button>
       </div>
     </div>
   </div>
 </div>
 
-<!-- TradingView library (embed option B) -->
 <script src="https://s3.tradingview.com/tv.js"></script>
 
 <script>
@@ -322,13 +345,11 @@ const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
 const WX_URL="https://api.open-meteo.com/v1/forecast?latitude=40.7608&longitude=-111.8910&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America/Denver";
 
 /* stale thresholds */
-const WARN_AFTER_MS = 45_000;  // show "Last update: ..." after 45s
-const STALE_AFTER_MS = 60_000; // stale mode after 60s
+const WARN_AFTER_MS = 45_000;
+const STALE_AFTER_MS = 60_000;
 
 let isPricePrimary=true;
 let latestPrice="-";
-
-/* Track last successful price updates */
 let lastGoodPriceUpdate = 0;
 
 /* ---------- HELPERS ---------- */
@@ -338,6 +359,10 @@ const fmtDateTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"sh
 function dayInitial(dateStr){
   const d=new Date(dateStr+"T00:00:00");
   return ["Su","M","T","W","Th","F","Sa"][d.getDay()];
+}
+function mdDate(dateStr){
+  // dateStr: "YYYY-MM-DD" -> "MM/DD"
+  return dateStr.slice(5).replace("-", "/");
 }
 
 function fmtAgo(ms){
@@ -377,13 +402,13 @@ async function fetchWeather(){
     weatherTrack.innerHTML =
       days.map((day,i)=>`
         <span class="weather-item">
-          ${dayInitial(day)}
+          ${dayInitial(day)} (${mdDate(day)})
           ${wxIcon(d.daily.weather_code[i])}
           ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
         </span>
       `).join("") + weatherTrack.innerHTML;
   }catch(e){
-    // keep weather failure quiet
+    // quiet
   }
 }
 
@@ -399,7 +424,7 @@ async function fetchPrice(){
     status.textContent="● LIVE";
     error.textContent="";
 
-    lastGoodPriceUpdate = Date.now(); // ✅ success timestamp
+    lastGoodPriceUpdate = Date.now();
     renderDisplays();
     updateStaleUI();
   }catch(e){
@@ -418,7 +443,7 @@ function updateTime(){
   renderDisplays();
 }
 
-/* ---------- STALE UI (mix of 1/2/3) ---------- */
+/* ---------- STALE UI ---------- */
 function updateStaleUI(){
   const now = Date.now();
   const base = lastGoodPriceUpdate || now;
@@ -444,6 +469,7 @@ function updateStaleUI(){
 
 /* ---------- CHART (TradingView embed) ---------- */
 let currentInterval = "60"; // default 1h
+let chartHidden = false;
 
 function setActiveTf(interval){
   document.querySelectorAll(".tf-btn").forEach(btn=>{
@@ -455,19 +481,17 @@ function buildTVChart(interval){
   currentInterval = String(interval);
   setActiveTf(currentInterval);
 
-  // clear container
+  if(chartHidden) return;
+
   const el = document.getElementById("tvChart");
   el.innerHTML = "";
 
-  // create a unique container id each time to avoid tv.js collisions
   const innerId = "tv_inner_" + Date.now();
   const inner = document.createElement("div");
   inner.id = innerId;
   inner.style.height = "170px";
   el.appendChild(inner);
 
-  // TradingView widget
-  // Note: interval values are in minutes for intraday, e.g. 5, 30, 60, 240
   new TradingView.widget({
     autosize: true,
     symbol: "COINBASE:BTCUSD",
@@ -489,8 +513,26 @@ function buildTVChart(interval){
   });
 }
 
+function setChartHidden(next){
+  chartHidden = next;
+  rightPane.classList.toggle("is-hidden", chartHidden);
+  toggleChartBtn.textContent = chartHidden ? "Show chart" : "Hide chart";
+
+  if(!chartHidden){
+    // rebuild chart immediately
+    if (window.TradingView && TradingView.widget) buildTVChart(currentInterval);
+  }else{
+    // clear to reduce CPU
+    tvChart.innerHTML = "";
+  }
+}
+
 document.querySelectorAll(".tf-btn").forEach(btn=>{
   btn.addEventListener("click", () => buildTVChart(btn.dataset.interval));
+});
+
+toggleChartBtn.addEventListener("click", ()=>{
+  setChartHidden(!chartHidden);
 });
 
 /* ---------- EVENTS ---------- */
@@ -511,11 +553,10 @@ function start(){
   fetchPrice();
   fetchWeather();
 
-  // chart (default 1h)
+  // chart default
   if (window.TradingView && TradingView.widget) {
     buildTVChart(currentInterval);
   } else {
-    // fallback if tv.js loads slowly
     const t = setInterval(() => {
       if (window.TradingView && TradingView.widget) {
         clearInterval(t);
