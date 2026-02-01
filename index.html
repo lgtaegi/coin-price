@@ -1,407 +1,247 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BTC Live Price</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BTC Live Price</title>
 
-  <style>
-    :root{
-      --bg: #1f1f1f;          /* dark gray background */
-      --card: #252525;        /* slightly lighter card */
-      --border: #3a3a3a;
-      --text: #e9e9e9;
-      --muted: #b3b3b3;       /* comfortable, not flashy */
-      --muted2: #9a9a9a;
-      --green: #0f6d3a;       /* darker green for price */
-      --error: #ff6b6b;
-    }
+<style>
+:root{
+  --bg:#1f1f1f;
+  --card:#252525;
+  --border:#3a3a3a;
+  --text:#e9e9e9;
+  --muted:#b3b3b3;
+  --muted2:#9a9a9a;
+  --green:#0f6d3a;
+  --error:#ff6b6b;
+}
 
-    body {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      margin: 0;
-      padding: 24px;
-      background: var(--bg);
-      color: var(--text);
-    }
+body{
+  margin:0;
+  padding:24px;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
 
-    .card {
-      max-width: 560px;
-      margin: 0 auto;
-      padding: 20px;
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-    }
+.card{
+  max-width:560px;
+  margin:0 auto;
+  padding:20px;
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:14px;
+}
 
-    h1 {
-      margin: 0 0 10px;
-      font-size: 20px;
-      color: var(--text);
-    }
+h1{
+  margin:0 0 10px;
+  font-size:20px;
+}
 
-    .tinybar{
-      font-size: 12px;
-      color: var(--muted2);
-      line-height: 1.35;
-      margin-bottom: 10px;
-    }
-    .tinybar .line{
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: baseline;
-    }
-    .tinybar .dot{
-      opacity: 0.7;
-    }
-    .forecast{
-      font-size: 11px;
-      color: var(--muted);
-      margin-top: 6px;
-      white-space: nowrap;
-      overflow-x: auto;
-      padding-bottom: 2px;
-    }
+/* ---------- tiny header ---------- */
+.tinybar{
+  font-size:12px;
+  color:var(--muted2);
+  margin-bottom:10px;
+}
 
-    .row {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
+/* ---------- weather marquee ---------- */
+.weather-marquee{
+  position:relative;
+  overflow:hidden;
+  border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);
+  padding:6px 0;
+  margin-top:6px;
+}
 
-    .pill {
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid var(--border);
-      font-size: 13px;
-      color: var(--muted);
-      background: rgba(255,255,255,0.02);
-    }
+.weather-track{
+  display:inline-flex;
+  gap:28px;
+  white-space:nowrap;
+  will-change:transform;
+  animation: scroll-left 28s linear infinite;
+  color:var(--muted);
+  font-size:11px;
+}
 
-    button {
-      padding: 10px 14px;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      background: rgba(255,255,255,0.03);
-      color: var(--text);
-      cursor: pointer;
-    }
+.weather-item{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+}
 
-    button:hover {
-      background: rgba(255,255,255,0.06);
-    }
+@keyframes scroll-left{
+  from{ transform:translateX(100%); }
+  to{ transform:translateX(-100%); }
+}
 
-    button:active {
-      transform: translateY(1px);
-    }
+/* accessibility */
+@media (prefers-reduced-motion: reduce){
+  .weather-track{
+    animation:none;
+  }
+}
 
-    .price {
-      font-size: 44px;
-      font-weight: 800;
-      margin: 14px 0 10px;
-      color: var(--green); /* darker green */
-      letter-spacing: 0.2px;
-    }
+.row{
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  align-items:center;
+  margin-top:10px;
+}
 
-    .muted {
-      color: var(--muted2);
-      font-size: 13px;
-    }
+.pill{
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  font-size:13px;
+  color:var(--muted);
+}
 
-    .err {
-      color: var(--error);
-      font-size: 13px;
-      margin-top: 10px;
-      white-space: pre-wrap;
-    }
+button{
+  padding:10px 14px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.04);
+  color:var(--text);
+  cursor:pointer;
+}
 
-    .times {
-      margin-top: 14px;
-      padding-top: 14px;
-      border-top: 1px solid var(--border);
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 8px;
-    }
+.price{
+  font-size:44px;
+  font-weight:800;
+  margin:14px 0;
+  color:var(--green);
+}
 
-    .time-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: baseline;
-      font-size: 14px;
-      color: var(--muted); /* time color: soft, not flashy */
-    }
+.times{
+  margin-top:14px;
+  padding-top:14px;
+  border-top:1px solid var(--border);
+  display:grid;
+  gap:8px;
+}
 
-    .time-row .label {
-      color: var(--muted2);
-    }
+.time-row{
+  display:flex;
+  justify-content:space-between;
+  font-size:14px;
+  color:var(--muted);
+}
 
-    .time-row .val {
-      font-variant-numeric: tabular-nums;
-      color: var(--muted);
-    }
-  </style>
+.err{
+  color:var(--error);
+  font-size:13px;
+  margin-top:10px;
+}
+</style>
 </head>
 
 <body>
-  <div class="card">
-    <h1>Bitcoin Price (BTC-USD)</h1>
+<div class="card">
+  <h1>Bitcoin Price (BTC-USD)</h1>
 
-    <!-- Tiny header: MT date/time + local weather + 7-day forecast -->
-    <div class="tinybar" aria-label="Today and weather">
-      <div class="line">
-        <span id="todayMT">Today: -</span>
-        <span class="dot">•</span>
-        <span id="wxNow">Weather: -</span>
-      </div>
-      <div id="wx7" class="forecast">7-day: -</div>
+  <div class="tinybar" id="todayMT">Today (MT): -</div>
+
+  <!-- 🌤️ Weather marquee -->
+  <div class="weather-marquee">
+    <div id="weatherTrack" class="weather-track">
+      <span class="weather-item">Loading weather…</span>
     </div>
-
-    <div class="row">
-      <div id="status" class="pill">● Connecting…</div>
-      <div id="updated" class="pill">Last updated: -</div>
-      <button id="refresh">Refresh now</button>
-    </div>
-
-    <div id="price" class="price">-</div>
-
-    <div class="muted">
-      Auto refresh every 5 seconds (Free / No server)
-    </div>
-
-    <div class="times" aria-label="World clocks">
-      <div class="time-row">
-        <div class="label">Salt Lake City, UT (Mountain Time)</div>
-        <div id="tLocal" class="val">-</div>
-      </div>
-      <div class="time-row">
-        <div class="label">US Eastern (New York)</div>
-        <div id="tET" class="val">-</div>
-      </div>
-      <div class="time-row">
-        <div class="label">US Pacific (Los Angeles)</div>
-        <div id="tPT" class="val">-</div>
-      </div>
-      <div class="time-row">
-        <div class="label">Korea (Seoul)</div>
-        <div id="tKR" class="val">-</div>
-      </div>
-    </div>
-
-    <div id="error" class="err"></div>
   </div>
 
-  <script>
-    // =========================
-    // PRICE (Coinbase, free)
-    // =========================
-    const PRICE_URL = "https://api.coinbase.com/v2/prices/spot?currency=USD";
-    const INTERVAL_MS = 5000;
+  <div class="row">
+    <div id="status" class="pill">● Connecting…</div>
+    <div id="updated" class="pill">Last updated: -</div>
+    <button id="refresh">Refresh</button>
+  </div>
 
-    // =========================
-    // WEATHER (Open-Meteo, free, no key)
-    // Salt Lake City, UT (approx): 40.7608, -111.8910
-    // =========================
-    const SLC = { lat: 40.7608, lon: -111.8910 };
-    const WX_URL =
-      `https://api.open-meteo.com/v1/forecast` +
-      `?latitude=${SLC.lat}&longitude=${SLC.lon}` +
-      `&current=temperature_2m,weather_code` +
-      `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
-      `&temperature_unit=fahrenheit` +
-      `&timezone=America/Denver`;
+  <div id="price" class="price">-</div>
 
-    // Time zones
-    const TZ_MT = "America/Denver";       // Salt Lake City (Mountain Time)
-    const TZ_ET = "America/New_York";
-    const TZ_PT = "America/Los_Angeles";
-    const TZ_KR = "Asia/Seoul";
+  <div class="times">
+    <div class="time-row"><span>Salt Lake City (MT)</span><span id="tMT">-</span></div>
+    <div class="time-row"><span>US Eastern</span><span id="tET">-</span></div>
+    <div class="time-row"><span>US Pacific</span><span id="tPT">-</span></div>
+    <div class="time-row"><span>Korea (Seoul)</span><span id="tKR">-</span></div>
+  </div>
 
-    // Elements
-    const elPrice = document.getElementById("price");
-    const elStatus = document.getElementById("status");
-    const elUpdated = document.getElementById("updated");
-    const elError = document.getElementById("error");
-    const btnRefresh = document.getElementById("refresh");
+  <div id="error" class="err"></div>
+</div>
 
-    const elLocal = document.getElementById("tLocal");
-    const elET = document.getElementById("tET");
-    const elPT = document.getElementById("tPT");
-    const elKR = document.getElementById("tKR");
+<script>
+/* ---------------- price ---------------- */
+const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
 
-    const elTodayMT = document.getElementById("todayMT");
-    const elWxNow = document.getElementById("wxNow");
-    const elWx7 = document.getElementById("wx7");
+/* ---------------- weather ---------------- */
+const WX_URL="https://api.open-meteo.com/v1/forecast?latitude=40.7608&longitude=-111.8910&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America/Denver";
 
-    // Weather code mapping (Open-Meteo WMO codes)
-    function wxText(code) {
-      const c = Number(code);
-      if (c === 0) return "Clear";
-      if (c === 1) return "Mostly clear";
-      if (c === 2) return "Partly cloudy";
-      if (c === 3) return "Overcast";
-      if (c === 45 || c === 48) return "Fog";
-      if (c === 51) return "Light drizzle";
-      if (c === 53) return "Drizzle";
-      if (c === 55) return "Heavy drizzle";
-      if (c === 56 || c === 57) return "Freezing drizzle";
-      if (c === 61) return "Light rain";
-      if (c === 63) return "Rain";
-      if (c === 65) return "Heavy rain";
-      if (c === 66 || c === 67) return "Freezing rain";
-      if (c === 71) return "Light snow";
-      if (c === 73) return "Snow";
-      if (c === 75) return "Heavy snow";
-      if (c === 77) return "Snow grains";
-      if (c === 80) return "Light showers";
-      if (c === 81) return "Showers";
-      if (c === 82) return "Heavy showers";
-      if (c === 85) return "Snow showers";
-      if (c === 86) return "Heavy snow showers";
-      if (c === 95) return "Thunderstorm";
-      if (c === 96 || c === 99) return "Thunderstorm w/ hail";
-      return "Weather";
-    }
+const wxIcon = c=>{
+  c=Number(c);
+  if(c===0) return "☀️";
+  if(c<=3) return "☁️";
+  if(c>=51 && c<=67) return "🌧️";
+  if(c>=71 && c<=86) return "❄️";
+  if(c>=95) return "⛈️";
+  return "🌤️";
+};
 
-    function fmtUSD(n) {
-      return new Intl.NumberFormat("en-US", {
-        style: "currency",
-        currency: "USD"
-      }).format(n);
-    }
+const wxText = c=>{
+  c=Number(c);
+  if(c===0) return "Clear";
+  if(c<=3) return "Cloudy";
+  if(c<=67) return "Rain";
+  if(c<=86) return "Snow";
+  if(c>=95) return "Storm";
+  return "Weather";
+};
 
-    function fmtDateTime(tz) {
-      return new Intl.DateTimeFormat("en-US", {
-        timeZone: tz,
-        weekday: "short",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true
-      }).format(new Date());
-    }
+const weatherTrack=document.getElementById("weatherTrack");
 
-    function fmtTimeOnly(tz) {
-      return new Intl.DateTimeFormat("en-US", {
-        timeZone: tz,
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true
-      }).format(new Date());
-    }
+/* ---------------- time ---------------- */
+const fmt=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
 
-    function fmtDayShort(isoDate) {
-      // isoDate like "2026-01-31" (already in America/Denver timezone from API)
-      const [y, m, d] = isoDate.split("-").map(Number);
-      const dt = new Date(Date.UTC(y, m - 1, d));
-      return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(dt);
-    }
+function updateTime(){
+  document.getElementById("todayMT").textContent="Today (MT): "+fmt("America/Denver");
+  tMT.textContent=fmt("America/Denver");
+  tET.textContent=fmt("America/New_York");
+  tPT.textContent=fmt("America/Los_Angeles");
+  tKR.textContent=fmt("Asia/Seoul");
+}
 
-    function updateClocks() {
-      // Local time fixed to Mountain Time (Salt Lake City)
-      elLocal.textContent = fmtDateTime(TZ_MT);
+async function fetchWeather(){
+  const r=await fetch(WX_URL);
+  const d=await r.json();
+  const days=d.daily.time.slice(0,7);
+  const html=days.map((day,i)=>`
+    <span class="weather-item">
+      ${wxIcon(d.daily.weather_code[i])}
+      ${day.slice(5)} ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
+      ${wxText(d.daily.weather_code[i])}
+    </span>
+  `).join("");
+  weatherTrack.innerHTML=html+html; // loop smoothly
+}
 
-      // Others
-      elET.textContent = fmtDateTime(TZ_ET);
-      elPT.textContent = fmtDateTime(TZ_PT);
-      elKR.textContent = fmtDateTime(TZ_KR);
+async function fetchPrice(){
+  const r=await fetch(PRICE_URL,{cache:"no-store"});
+  const j=await r.json();
+  price.textContent=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(j.data.amount);
+  updated.textContent="Updated: "+fmt("America/Denver");
+  status.textContent="● LIVE";
+}
 
-      // Top tiny bar: Today (MT)
-      elTodayMT.textContent = "Today (MT): " + fmtDateTime(TZ_MT);
-    }
+function start(){
+  updateTime();
+  fetchWeather();
+  fetchPrice();
+  setInterval(updateTime,1000);
+  setInterval(fetchPrice,5000);
+  setInterval(fetchWeather,10*60*1000);
+}
 
-    async function fetchPrice() {
-      elError.textContent = "";
-      elStatus.textContent = "● Updating…";
-
-      try {
-        const res = await fetch(PRICE_URL, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-
-        const json = await res.json();
-        const amount = Number(json?.data?.amount);
-        if (!Number.isFinite(amount)) throw new Error("Unexpected response format");
-
-        elPrice.textContent = fmtUSD(amount);
-        elUpdated.textContent = "Last updated: " + fmtTimeOnly(TZ_MT) + " (MT)";
-        elStatus.textContent = "● LIVE";
-      } catch (err) {
-        elStatus.textContent = "○ Retrying";
-        elError.textContent = "Error: " + err.message;
-      }
-    }
-
-    async function fetchWeather() {
-      // Keep weather errors subtle (don’t spam user)
-      try {
-        const res = await fetch(WX_URL, { cache: "no-store" });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-
-        const tNow = data?.current?.temperature_2m;
-        const cNow = data?.current?.weather_code;
-
-        if (Number.isFinite(tNow)) {
-          elWxNow.textContent = `Weather (SLC): ${Math.round(tNow)}°F · ${wxText(cNow)}`;
-        } else {
-          elWxNow.textContent = "Weather (SLC): -";
-        }
-
-        const dates = data?.daily?.time || [];
-        const tMax = data?.daily?.temperature_2m_max || [];
-        const tMin = data?.daily?.temperature_2m_min || [];
-        const codes = data?.daily?.weather_code || [];
-
-        if (dates.length) {
-          // Show 7-day compact row: "Sat 38/26 Clear · Sun 40/28 Partly cloudy · ..."
-          const parts = dates.slice(0, 7).map((d, i) => {
-            const day = fmtDayShort(d);
-            const hi = Number.isFinite(tMax[i]) ? Math.round(tMax[i]) : "-";
-            const lo = Number.isFinite(tMin[i]) ? Math.round(tMin[i]) : "-";
-            const w = wxText(codes[i]);
-            return `${day} ${hi}/${lo}° ${w}`;
-          });
-          elWx7.textContent = "7-day: " + parts.join("  ·  ");
-        } else {
-          elWx7.textContent = "7-day: -";
-        }
-      } catch (err) {
-        // If weather fails, keep it minimal (no big red error)
-        if (!elWxNow.textContent || elWxNow.textContent.includes("-")) {
-          elWxNow.textContent = "Weather (SLC): unavailable";
-        }
-      }
-    }
-
-    function start() {
-      updateClocks();
-      fetchWeather();
-      fetchPrice();
-
-      // Price refresh
-      setInterval(fetchPrice, INTERVAL_MS);
-
-      // Clocks: real-time feel
-      setInterval(updateClocks, 1000);
-
-      // Weather: update occasionally (every 10 minutes)
-      setInterval(fetchWeather, 10 * 60 * 1000);
-    }
-
-    btnRefresh.addEventListener("click", () => {
-      updateClocks();
-      fetchWeather();
-      fetchPrice();
-    });
-
-    start();
-  </script>
+start();
+</script>
 </body>
 </html>
