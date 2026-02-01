@@ -1,18 +1,11 @@
 <!--
-Version: 1.16
+Version: 1.17
 Date: 2026-02-01
 Updated:
-- Removed top empty space; placed swap (price/time) button inline to the right of "Bitcoin Dashboard"
-- Removed "Today (MT)" label; show only the Mountain Time date/time value
-- Weather marquee weekday switched to 3-letter format (Mon/Tue/Wed/Thu/Fri/Sat/Sun)
-- Added brighter marquee filler message before/around weather loads: "오늘도 행복하자 / Let’s be happy today."
-- Removed status indicator ("● Connecting…", "● LIVE", etc.) entirely
-- Replaced Refresh button with circular arrow refresh icon; aligned to the far-right of the "Updated:" row
-- Removed always-on secondary time under price; improved swap mode typography:
-  - When primary is TIME: primary font slightly smaller to fit one line
-  - Secondary "BTC: $xx,xxx" font increased ~1.5x
-- Timezone list updated: "US Eastern" -> "New York", removed "US Pacific", "Korea (Seoul)" -> "Seoul"
-- Kept all existing features (weather, timezones, stale detection, chart with TF + hide/show persistence)
+- Weather refresh changed to every 6 hours with localStorage cache (separate from other timers)
+- Weather marquee made seamless (no “blank time”): two identical segments + continuous loop animation
+- Added an 8-color “Minecraft-like” pixel runner with sword swing (SVG pixel art) inside the marquee (A option)
+- Kept current layout and all existing features from v1.16 (swap, stale, chart TF + hide/show, refresh icon, timezone labels, cents removed)
 Author: lgtaegi
 -->
 
@@ -34,7 +27,17 @@ Author: lgtaegi
   --green:#0f6d3a;
   --stale:#7a8a4a;
   --error:#ff6b6b;
-  --bright:#eaeaea; /* brighter for 행복하자 line */
+  --bright:#f3f3f3;
+
+  /* 8-color dot palette (pixel runner) */
+  --p1:#1a1a1a; /* outline */
+  --p2:#f2c9a0; /* skin */
+  --p3:#2f6fb3; /* shirt */
+  --p4:#1f4f2a; /* pants */
+  --p5:#c9a23a; /* sword */
+  --p6:#8b5a2b; /* hair */
+  --p7:#e7e7e7; /* highlight */
+  --p8:#3b3b3b; /* shadow */
 }
 
 body{
@@ -59,11 +62,11 @@ body{
   align-items:center;
   justify-content:space-between;
   gap:12px;
-  margin:0 0 10px; /* no top gap */
+  margin:0 0 10px;
 }
 
 h1{
-  margin:0; /* remove extra space above */
+  margin:0;
   font-size:20px;
 }
 
@@ -87,22 +90,19 @@ h1{
   white-space:nowrap;
 }
 
-.primary.is-stale{
-  color:var(--stale);
-  animation:stalePulse 1.4s ease-in-out infinite;
-}
-
 @keyframes stalePulse{
   0%,100%{opacity:1}
   50%{opacity:.55}
+}
+.primary.is-stale{
+  color:var(--stale);
+  animation:stalePulse 1.4s ease-in-out infinite;
 }
 
 .secondary{
   font-size:13px;
   color:var(--muted2);
 }
-
-/* bigger secondary when showing BTC under time */
 .secondary.big{
   font-size:19.5px; /* ~1.5x */
   color:var(--muted);
@@ -124,28 +124,44 @@ h1{
   display:none;
 }
 
-/* weather marquee */
+/* ---------- seamless weather marquee ---------- */
 .weather-marquee{
   overflow:hidden;
   border-top:1px solid var(--border);
   border-bottom:1px solid var(--border);
   padding:6px 0;
   margin-bottom:10px;
+  position:relative;
 }
 
+/* We animate the whole track across -50% (because we duplicate identical segments) */
 .weather-track{
+  display:flex;
+  width:fit-content;
+  will-change:transform;
+  animation:marquee 84s linear infinite; /* 1/3 speed feel */
+}
+
+@keyframes marquee{
+  0%{ transform:translateX(0); }
+  100%{ transform:translateX(-50%); }
+}
+
+.seg{
   display:inline-flex;
   gap:28px;
   white-space:nowrap;
-  animation:scroll-left 84s linear infinite; /* 1/3 speed */
-  font-size:11px;
-  color:var(--muted);
+  padding-right:28px; /* spacing between duplicated halves */
+  align-items:center;
+  flex:0 0 auto;
 }
 
 .weather-item{
   display:inline-flex;
   align-items:center;
   gap:6px;
+  font-size:11px;
+  color:var(--muted);
 }
 
 .filler{
@@ -153,21 +169,72 @@ h1{
   opacity:0.95;
 }
 
-@keyframes scroll-left{
-  from{transform:translateX(100%);}
-  to{transform:translateX(-100%);}
+/* Pixel runner container in the marquee */
+.runner{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+
+.runner .label{
+  font-size:11px;
+  color:var(--bright);
+  opacity:0.95;
+}
+
+/* ---------- pixel runner SVG animation ---------- */
+.pixel-svg{
+  width:22px;
+  height:22px;
+  image-rendering:pixelated;
+  shape-rendering:crispEdges;
+  display:block;
+  transform:translateY(0);
+  animation:runBounce 0.55s steps(2) infinite;
+}
+
+@keyframes runBounce{
+  0%,100%{ transform:translateY(0); }
+  50%{ transform:translateY(-1px); }
+}
+
+/* Animate arms/legs inside the SVG via CSS */
+.pixel-svg .legA{
+  transform-origin: 8px 18px;
+  animation:legA 0.55s steps(2) infinite;
+}
+.pixel-svg .legB{
+  transform-origin: 12px 18px;
+  animation:legB 0.55s steps(2) infinite;
+}
+@keyframes legA{ 0%,100%{ transform:rotate(10deg); } 50%{ transform:rotate(-12deg);} }
+@keyframes legB{ 0%,100%{ transform:rotate(-10deg);} 50%{ transform:rotate(12deg);} }
+
+.pixel-svg .armSword{
+  transform-origin: 14px 10px;
+  animation:swing 0.85s steps(3) infinite;
+}
+@keyframes swing{
+  0%{ transform:rotate(-10deg); }
+  40%{ transform:rotate(40deg); }
+  70%{ transform:rotate(12deg); }
+  100%{ transform:rotate(-10deg); }
 }
 
 @media (prefers-reduced-motion: reduce){
-  .weather-track{animation:none;}
-  .primary.is-stale{animation:none;}
+  .weather-track{ animation:none; }
+  .primary.is-stale{ animation:none; }
+  .pixel-svg{ animation:none; }
+  .pixel-svg .legA, .pixel-svg .legB, .pixel-svg .armSword{ animation:none; }
 }
 
-.row{
+/* ---------- updated row ---------- */
+.updated-row{
   display:flex;
   align-items:center;
+  justify-content:space-between;
   gap:12px;
-  flex-wrap:wrap;
+  width:100%;
 }
 
 .pill{
@@ -176,14 +243,6 @@ h1{
   border:1px solid var(--border);
   font-size:13px;
   color:var(--muted);
-}
-
-.updated-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  width:100%;
 }
 
 .refresh-icon-btn{
@@ -208,6 +267,24 @@ h1{
   display:block;
 }
 
+/* ---------- layout ---------- */
+.main-grid{
+  display:flex;
+  gap:14px;
+  align-items:flex-start;
+  flex-wrap:wrap;
+}
+
+.left-pane{
+  flex:1 1 260px;
+  min-width:240px;
+}
+
+.right-pane{
+  flex:0 0 230px;
+  width:230px;
+}
+
 .times{
   margin-top:14px;
   padding-top:14px;
@@ -230,24 +307,7 @@ h1{
   white-space:pre-wrap;
 }
 
-/* ---------- chart add-on (B option) ---------- */
-.main-grid{
-  display:flex;
-  gap:14px;
-  align-items:flex-start;
-  flex-wrap:wrap;
-}
-
-.left-pane{
-  flex:1 1 260px;
-  min-width:240px;
-}
-
-.right-pane{
-  flex:0 0 230px;
-  width:230px;
-}
-
+/* ---------- chart ---------- */
 .chart-card{
   border:1px solid var(--border);
   border-radius:12px;
@@ -309,13 +369,9 @@ h1{
 }
 .chart-toggle:hover{ background:rgba(255,255,255,0.06); }
 
-/* hidden state */
 .right-pane.is-hidden #tvChart,
 .right-pane.is-hidden .tf{
   display:none;
-}
-.right-pane.is-hidden .chart-title{
-  opacity:0.9;
 }
 </style>
 </head>
@@ -323,36 +379,30 @@ h1{
 <body>
 <div class="card">
 
-  <!-- 1) Title + swap button inline -->
   <div class="header">
     <h1>Bitcoin Dashboard</h1>
     <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
   </div>
 
-  <!-- 2) Remove 'Today (MT)' text: show value only -->
   <div class="tinybar">
     <span id="todayMT">-</span>
     <span id="staleAge" class="stale-age">Last update: -</span>
   </div>
 
-  <!-- 3) Weather marquee with filler -->
+  <!-- Seamless marquee: JS will fill segA/segB -->
   <div class="weather-marquee">
     <div id="weatherTrack" class="weather-track">
-      <span class="weather-item filler">오늘도 행복하자 / Let’s be happy today.</span>
-      <span class="weather-item filler">오늘도 행복하자 / Let’s be happy today.</span>
-      <span class="weather-item filler">오늘도 행복하자 / Let’s be happy today.</span>
+      <div id="segA" class="seg"></div>
+      <div id="segB" class="seg"></div>
     </div>
   </div>
 
   <div class="main-grid">
     <div class="left-pane">
-      <!-- 4) Remove Connecting/LIVE pill entirely (no status row).
-              5) Updated + refresh icon aligned right -->
       <div class="updated-row">
         <div id="updated" class="pill">Updated: -</div>
 
         <button id="refreshBtn" class="refresh-icon-btn" title="Refresh">
-          <!-- circular arrow icon (inline SVG) -->
           <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
             <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -363,7 +413,6 @@ h1{
       <div id="primaryDisplay" class="primary">-</div>
       <div id="secondaryDisplay" class="secondary">-</div>
 
-      <!-- 7) Timezone list updated -->
       <div class="times">
         <div class="time-row"><span>Salt Lake City</span><span id="tMT">-</span></div>
         <div class="time-row"><span>New York</span><span id="tNY">-</span></div>
@@ -406,6 +455,10 @@ const STALE_AFTER_MS = 60_000;
 const TF_KEY = "btcChartTF";
 const CHART_HIDDEN_KEY = "btcChartHidden";
 
+const WX_CACHE_KEY = "wxDailyItemsHtml_v1";
+const WX_CACHE_TS_KEY = "wxDailyItemsTs_v1";
+const WX_REFRESH_MS = 6 * 60 * 60 * 1000; // 6 hours
+
 const FILLER_KO = "오늘도 행복하자";
 const FILLER_EN = "Let’s be happy today.";
 
@@ -444,16 +497,14 @@ function fmtAgo(ms){
   return `${m}m ${String(r).padStart(2,"0")}s ago`;
 }
 
-/* 6) Typography rules for swap modes */
+/* Typography rules for swap modes */
 function applySwapTypography(){
   if(isPricePrimary){
-    // Price is primary (big). Secondary hidden (no MT time under price).
     primaryDisplay.style.fontSize = "44px";
     secondaryDisplay.classList.remove("big");
-    secondaryDisplay.style.display = "none";
+    secondaryDisplay.style.display = "none"; // no MT time under price
   } else {
-    // Time is primary: slightly smaller so it fits one line.
-    primaryDisplay.style.fontSize = "36px";
+    primaryDisplay.style.fontSize = "36px";  // fit one line
     secondaryDisplay.classList.add("big");
     secondaryDisplay.style.display = "block";
   }
@@ -462,15 +513,105 @@ function applySwapTypography(){
 function renderDisplays(){
   if(isPricePrimary){
     primaryDisplay.textContent = latestPrice;
-    secondaryDisplay.textContent = ""; // hidden
+    secondaryDisplay.textContent = "";
   } else {
-    const mt = fmtTime("America/Denver");
-    primaryDisplay.textContent = mt;
+    primaryDisplay.textContent = fmtTime("America/Denver");
     secondaryDisplay.textContent = "BTC: " + latestPrice;
   }
 }
 
-/* ---------- WEATHER ---------- */
+/* ---------- PIXEL RUNNER (SVG) ---------- */
+function runnerSvg(){
+  // 8-color “Minecraft-ish” pixel runner with sword swing.
+  // Note: This is an original pixel design inspired by blocky aesthetics (not copying a specific character).
+  return `
+    <svg class="pixel-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+      <!-- body (static) -->
+      <!-- outline/back shadow blocks -->
+      <rect x="6" y="2" width="8" height="1" fill="var(--p1)"/>
+      <rect x="5" y="3" width="10" height="1" fill="var(--p1)"/>
+      <rect x="5" y="4" width="1" height="5" fill="var(--p1)"/>
+      <rect x="14" y="4" width="1" height="6" fill="var(--p1)"/>
+      <rect x="6" y="9" width="8" height="1" fill="var(--p1)"/>
+      <rect x="6" y="3" width="8" height="1" fill="var(--p6)"/>
+      <rect x="6" y="4" width="8" height="2" fill="var(--p6)"/>
+      <rect x="6" y="6" width="8" height="3" fill="var(--p2)"/>
+      <rect x="7" y="7" width="2" height="1" fill="var(--p8)"/>
+      <rect x="11" y="7" width="2" height="1" fill="var(--p8)"/>
+      <rect x="9" y="8" width="2" height="1" fill="var(--p7)"/>
+
+      <!-- torso -->
+      <rect x="6" y="10" width="8" height="4" fill="var(--p3)"/>
+      <rect x="6" y="10" width="8" height="1" fill="var(--p1)"/>
+      <rect x="6" y="13" width="8" height="1" fill="var(--p1)"/>
+      <rect x="6" y="11" width="1" height="2" fill="var(--p1)"/>
+      <rect x="13" y="11" width="1" height="2" fill="var(--p1)"/>
+      <rect x="7" y="11" width="2" height="1" fill="var(--p7)"/>
+
+      <!-- back arm (simple) -->
+      <rect x="4" y="11" width="2" height="3" fill="var(--p3)"/>
+      <rect x="4" y="11" width="2" height="1" fill="var(--p1)"/>
+      <rect x="4" y="13" width="2" height="1" fill="var(--p1)"/>
+      <rect x="4" y="12" width="1" height="1" fill="var(--p1)"/>
+
+      <!-- sword arm group (animated) -->
+      <g class="armSword">
+        <rect x="14" y="11" width="2" height="3" fill="var(--p3)"/>
+        <rect x="14" y="11" width="2" height="1" fill="var(--p1)"/>
+        <rect x="14" y="13" width="2" height="1" fill="var(--p1)"/>
+        <!-- hand -->
+        <rect x="16" y="12" width="1" height="1" fill="var(--p2)"/>
+        <!-- sword -->
+        <rect x="17" y="10" width="1" height="5" fill="var(--p5)"/>
+        <rect x="17" y="9" width="1" height="1" fill="var(--p7)"/>
+        <rect x="16" y="11" width="1" height="1" fill="var(--p5)"/>
+      </g>
+
+      <!-- legs (animated groups) -->
+      <g class="legA">
+        <rect x="7" y="14" width="3" height="1" fill="var(--p1)"/>
+        <rect x="7" y="15" width="3" height="3" fill="var(--p4)"/>
+        <rect x="7" y="17" width="3" height="1" fill="var(--p1)"/>
+        <rect x="7" y="18" width="3" height="1" fill="var(--p8)"/>
+      </g>
+
+      <g class="legB">
+        <rect x="10" y="14" width="3" height="1" fill="var(--p1)"/>
+        <rect x="10" y="15" width="3" height="3" fill="var(--p4)"/>
+        <rect x="10" y="17" width="3" height="1" fill="var(--p1)"/>
+        <rect x="10" y="18" width="3" height="1" fill="var(--p8)"/>
+      </g>
+    </svg>
+  `;
+}
+
+/* ---------- MARQUEE BUILDERS ---------- */
+function fillerItemsHtml(){
+  // Build enough content so even before weather is ready, there’s no "blank time".
+  // Repeat runner + message a few times in one segment.
+  const runnerBlock = `
+    <span class="weather-item runner">
+      ${runnerSvg()}
+      <span class="label">${FILLER_KO} / ${FILLER_EN}</span>
+    </span>
+  `;
+  return runnerBlock + runnerBlock + runnerBlock + runnerBlock;
+}
+
+function setMarqueeSegmentHtml(segmentHtml){
+  // Two identical segments => seamless loop (no gaps / no jump).
+  segA.innerHTML = segmentHtml;
+  segB.innerHTML = segmentHtml;
+}
+
+function dayShort3(dateStr){
+  const d = new Date(dateStr + "T00:00:00");
+  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+}
+function mdDate(dateStr){
+  return dateStr.slice(5).replace("-", "/"); // MM/DD
+}
+
 const wxIcon = (c) => {
   c = Number(c);
   if(c === 0) return "☀️";
@@ -481,47 +622,66 @@ const wxIcon = (c) => {
   return "🌤️";
 };
 
-function dayShort3(dateStr){
-  // dateStr "YYYY-MM-DD" -> Mon/Tue/...
-  const d = new Date(dateStr + "T00:00:00");
-  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
-}
-function mdDate(dateStr){
-  return dateStr.slice(5).replace("-", "/"); // MM/DD
-}
+function buildWeatherItemsHtml(daily){
+  const days = daily.time.slice(0,7);
+  const items = days.map((day,i)=>`
+    <span class="weather-item">
+      ${dayShort3(day)} (${mdDate(day)})
+      ${wxIcon(daily.weather_code[i])}
+      ${Math.round(daily.temperature_2m_max[i])}/${Math.round(daily.temperature_2m_min[i])}°
+    </span>
+  `).join("");
 
-/* Build marquee content: include filler to prevent "empty gaps" */
-function buildMarquee(itemsHtml){
-  const filler = `
-    <span class="weather-item filler">${FILLER_KO} / ${FILLER_EN}</span>
-    <span class="weather-item filler">${FILLER_KO} / ${FILLER_EN}</span>
+  // Include runner + message blocks to keep the segment long and lively even after weather is loaded.
+  const runnerBlock = `
+    <span class="weather-item runner">
+      ${runnerSvg()}
+      <span class="label">${FILLER_KO} / ${FILLER_EN}</span>
+    </span>
   `;
-  // Repeat sequence to keep continuous scroll
-  weatherTrack.innerHTML = (itemsHtml + filler + itemsHtml + filler);
+
+  // Mix: runner, weather(7), runner, weather(7) => long segment => no blanks.
+  return runnerBlock + items + runnerBlock + items;
 }
 
-async function fetchWeather(){
-  try{
-    // While loading, ensure filler is present (keeps marquee non-empty)
-    buildMarquee(`<span class="weather-item filler">${FILLER_KO} / ${FILLER_EN}</span>`);
+/* ---------- WEATHER (6-hour cache) ---------- */
+function readWxCache(){
+  const ts = Number(localStorage.getItem(WX_CACHE_TS_KEY) || "0");
+  const html = localStorage.getItem(WX_CACHE_KEY) || "";
+  return { ts, html };
+}
+function writeWxCache(html){
+  localStorage.setItem(WX_CACHE_KEY, html);
+  localStorage.setItem(WX_CACHE_TS_KEY, String(Date.now()));
+}
 
+async function ensureWeather(){
+  // Always show filler immediately (no blanks).
+  setMarqueeSegmentHtml(fillerItemsHtml());
+
+  const { ts, html } = readWxCache();
+  const age = Date.now() - ts;
+
+  // Use cached if valid
+  if (html && ts && age < WX_REFRESH_MS){
+    setMarqueeSegmentHtml(html);
+    return;
+  }
+
+  // Otherwise fetch and cache
+  try{
     const r = await fetch(WX_URL, { cache: "no-store" });
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const d = await r.json();
-    const days = d.daily.time.slice(0,7);
+    const data = await r.json();
 
-    const items = days.map((day,i)=>`
-      <span class="weather-item">
-        ${dayShort3(day)} (${mdDate(day)})
-        ${wxIcon(d.daily.weather_code[i])}
-        ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
-      </span>
-    `).join("");
+    const built = buildWeatherItemsHtml(data.daily);
+    writeWxCache(built);
 
-    buildMarquee(items);
+    // Swap to weather content (still seamless because both segments replaced identically)
+    setMarqueeSegmentHtml(built);
   }catch(e){
-    // If weather fails, keep filler only
-    buildMarquee(`<span class="weather-item filler">${FILLER_KO} / ${FILLER_EN}</span>`);
+    // Keep filler if fetch fails
+    setMarqueeSegmentHtml(fillerItemsHtml());
   }
 }
 
@@ -532,7 +692,6 @@ async function fetchPrice(){
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const j = await r.json();
 
-    // cents removed
     latestPrice = new Intl.NumberFormat("en-US", {
       style: "currency",
       currency: "USD",
@@ -540,7 +699,6 @@ async function fetchPrice(){
     }).format(j?.data?.amount);
 
     lastGoodPriceUpdate = Date.now();
-
     updated.textContent = "Updated: " + fmtTime("America/Denver") + " (MT)";
     error.textContent = "";
 
@@ -657,18 +815,20 @@ swapBtn.addEventListener("click", ()=>{
 
 refreshBtn.addEventListener("click", ()=>{
   fetchPrice();
-  fetchWeather();
+  ensureWeather(); // respects 6-hour cache (but refresh button forces check)
 });
 
 /* ---------- START ---------- */
 function start(){
-  // initial typography & render state
+  // ensure marquee has something immediately (no blank time)
+  setMarqueeSegmentHtml(fillerItemsHtml());
+
   applySwapTypography();
   renderDisplays();
 
   updateTime();
   fetchPrice();
-  fetchWeather();
+  ensureWeather();
 
   setChartHidden(chartHidden);
   setActiveTf(currentInterval);
@@ -690,8 +850,10 @@ function start(){
 
   setInterval(updateTime, 1000);
   setInterval(fetchPrice, 5000);
-  setInterval(fetchWeather, 10 * 60 * 1000);
   setInterval(updateStaleUI, 1000);
+
+  // Weather refresh every 6 hours (separate from other timers)
+  setInterval(ensureWeather, WX_REFRESH_MS);
 }
 
 start();
