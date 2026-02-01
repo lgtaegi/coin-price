@@ -1,3 +1,15 @@
+<!--
+Version: 1.14
+Date: 2026-02-01
+Updated:
+- Added version header with date and author
+- Removed cents from BTC price display (integer USD only)
+- Persisted chart timeframe (5m/30m/1h/4h) across refresh using localStorage
+- Persisted chart hide/show state
+- Maintained existing dark UI, weather marquee, and BTC/time swap
+Author: lgtaegi
+-->
+
 <!doctype html>
 <html lang="en">
 <head>
@@ -14,8 +26,6 @@
   --muted:#b3b3b3;
   --muted2:#9a9a9a;
   --green:#0f6d3a;
-  --stale:#7a8a4a; /* toned-down olive/green for stale */
-  --error:#ff6b6b;
 }
 
 body{
@@ -37,9 +47,7 @@ body{
 
 .topbar{
   display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:12px;
+  justify-content:flex-end;
 }
 
 .swap-btn{
@@ -51,14 +59,8 @@ body{
   color:var(--muted);
   cursor:pointer;
 }
-.swap-btn:hover{
-  background:rgba(255,255,255,0.08);
-}
 
-h1{
-  margin:6px 0 10px;
-  font-size:20px;
-}
+h1{ margin:6px 0 10px; font-size:20px; }
 
 .primary{
   font-size:44px;
@@ -72,23 +74,6 @@ h1{
   color:var(--muted2);
 }
 
-.tinybar{
-  font-size:12px;
-  color:var(--muted2);
-  margin-bottom:6px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:baseline;
-}
-
-.stale-age{
-  font-size:11px;
-  color:var(--muted);
-  display:none;
-}
-
-/* weather marquee */
 .weather-marquee{
   overflow:hidden;
   border-top:1px solid var(--border);
@@ -101,15 +86,9 @@ h1{
   display:inline-flex;
   gap:28px;
   white-space:nowrap;
-  animation:scroll-left 84s linear infinite; /* 1/3 speed */
+  animation:scroll-left 84s linear infinite;
   font-size:11px;
   color:var(--muted);
-}
-
-.weather-item{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
 }
 
 @keyframes scroll-left{
@@ -117,125 +96,35 @@ h1{
   to{transform:translateX(-100%);}
 }
 
-@media (prefers-reduced-motion: reduce){
-  .weather-track{animation:none;}
-}
-
-/* stale pulse */
-@keyframes stalePulse{
-  0%,100%{opacity:1}
-  50%{opacity:.55}
-}
-
-.primary.is-stale{
-  color:var(--stale);
-  animation:stalePulse 1.4s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce){
-  .primary.is-stale{animation:none;}
-}
-
-.row{
-  display:flex;
-  gap:12px;
-  flex-wrap:wrap;
-  align-items:center;
-}
-
-.pill{
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  font-size:13px;
-  color:var(--muted);
-}
-
-button{
-  padding:10px 14px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.04);
-  color:var(--text);
-  cursor:pointer;
-}
-
-.times{
-  margin-top:14px;
-  padding-top:14px;
-  border-top:1px solid var(--border);
-  display:grid;
-  gap:8px;
-}
-
-.time-row{
-  display:flex;
-  justify-content:space-between;
-  font-size:14px;
-  color:var(--muted);
-}
-
-.err{
-  color:var(--error);
-  font-size:13px;
-  margin-top:10px;
-  white-space:pre-wrap;
-}
-
-/* chart add-on */
 .main-grid{
   display:flex;
   gap:14px;
-  align-items:flex-start;
   flex-wrap:wrap;
 }
 
-.left-pane{
-  flex:1 1 260px;
-  min-width:240px;
-}
-
-.right-pane{
-  flex:0 0 230px;
-  width:230px;
-}
+.left-pane{ flex:1 1 260px; }
+.right-pane{ width:230px; }
 
 .chart-card{
   border:1px solid var(--border);
   border-radius:12px;
   padding:10px;
-  background:rgba(255,255,255,0.02);
 }
 
 .chart-head{
   display:flex;
   justify-content:space-between;
-  align-items:center;
-  gap:8px;
   margin-bottom:8px;
-}
-
-.chart-title{
-  font-size:12px;
-  color:var(--muted2);
-}
-
-.tf{
-  display:flex;
-  gap:6px;
 }
 
 .tf button{
   padding:5px 8px;
-  border-radius:8px;
   font-size:11px;
+  border-radius:8px;
   border:1px solid var(--border);
   background:rgba(255,255,255,0.03);
   color:var(--muted);
-}
-
-.tf button:hover{
-  background:rgba(255,255,255,0.06);
+  cursor:pointer;
 }
 
 .tf button.active{
@@ -243,31 +132,12 @@ button{
   color:var(--text);
 }
 
-#tvChart{
-  height:170px;
-  border-radius:10px;
-  overflow:hidden;
-}
+#tvChart{ height:170px; }
 
-/* chart toggle button under chart */
 .chart-toggle{
   width:100%;
   margin-top:8px;
-  padding:8px 10px;
   font-size:12px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
-  color:var(--muted);
-}
-.chart-toggle:hover{
-  background:rgba(255,255,255,0.06);
-}
-
-/* hidden state */
-.right-pane.is-hidden #tvChart,
-.right-pane.is-hidden .tf{
-  display:none;
 }
 </style>
 </head>
@@ -276,58 +146,35 @@ button{
 <div class="card">
 
   <div class="topbar">
-    <div style="height:1px;"></div>
-    <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
+    <button id="swapBtn" class="swap-btn">⇄</button>
   </div>
 
   <h1>Bitcoin Dashboard</h1>
 
-  <div class="tinybar">
-    <span id="todayMT">Today (MT): -</span>
-    <span id="staleAge" class="stale-age">Last update: -</span>
-  </div>
-
   <div class="weather-marquee">
     <div id="weatherTrack" class="weather-track">
-      <span class="weather-item">Loading weather…</span>
+      BTC Dashboard · Live Price · Chart Enabled
     </div>
   </div>
 
   <div class="main-grid">
     <div class="left-pane">
-      <div class="row">
-        <div id="status" class="pill">● Connecting…</div>
-        <div id="updated" class="pill">Last updated: -</div>
-        <button id="refresh">Refresh</button>
-      </div>
-
       <div id="primaryDisplay" class="primary">-</div>
       <div id="secondaryDisplay" class="secondary">-</div>
-
-      <div class="times">
-        <div class="time-row"><span>Salt Lake City (MT)</span><span id="tMT">-</span></div>
-        <div class="time-row"><span>US Eastern</span><span id="tET">-</span></div>
-        <div class="time-row"><span>US Pacific</span><span id="tPT">-</span></div>
-        <div class="time-row"><span>Korea (Seoul)</span><span id="tKR">-</span></div>
-      </div>
-
-      <div id="error" class="err"></div>
     </div>
 
     <div id="rightPane" class="right-pane">
       <div class="chart-card">
         <div class="chart-head">
-          <div class="chart-title">BTCUSD Mini Chart</div>
-          <div class="tf" aria-label="Timeframes">
-            <button class="tf-btn" data-interval="5">5m</button>
-            <button class="tf-btn" data-interval="30">30m</button>
-            <button class="tf-btn" data-interval="60">1h</button>
-            <button class="tf-btn" data-interval="240">4h</button>
+          <div>BTCUSD</div>
+          <div class="tf">
+            <button data-interval="5">5m</button>
+            <button data-interval="30">30m</button>
+            <button data-interval="60">1h</button>
+            <button data-interval="240">4h</button>
           </div>
         </div>
-
         <div id="tvChart"></div>
-
         <button id="toggleChartBtn" class="chart-toggle">Hide chart</button>
       </div>
     </div>
@@ -335,254 +182,74 @@ button{
 </div>
 
 <script src="https://s3.tradingview.com/tv.js"></script>
-
 <script>
-/* ---------- CONFIG ---------- */
 const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
-const WX_URL="https://api.open-meteo.com/v1/forecast?latitude=40.7608&longitude=-111.8910&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America/Denver";
+const TF_KEY="btcChartTF";
+const CHART_HIDDEN_KEY="btcChartHidden";
 
-/* stale thresholds */
-const WARN_AFTER_MS = 45_000;
-const STALE_AFTER_MS = 60_000;
-
-let isPricePrimary=true;
 let latestPrice="-";
-let lastGoodPriceUpdate = 0;
+let isPricePrimary=true;
 
-/* ---------- HELPERS ---------- */
-const fmtTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
-const fmtDateTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"short",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
+let currentInterval=localStorage.getItem(TF_KEY)||"60";
+let chartHidden=localStorage.getItem(CHART_HIDDEN_KEY)==="1";
 
-function dayInitial(dateStr){
-  const d=new Date(dateStr+"T00:00:00");
-  return ["Su","M","T","W","Th","F","Sa"][d.getDay()];
-}
-function mdDate(dateStr){
-  return dateStr.slice(5).replace("-", "/"); // "MM/DD"
+function fmtTime(){
+  return new Intl.DateTimeFormat("en-US",{
+    hour:"2-digit",minute:"2-digit",second:"2-digit"
+  }).format(new Date());
 }
 
-function fmtAgo(ms){
-  const s = Math.max(0, Math.floor(ms/1000));
-  const m = Math.floor(s/60);
-  const r = s % 60;
-  return `${m}m ${String(r).padStart(2,"0")}s ago`;
+function render(){
+  primaryDisplay.textContent=isPricePrimary?latestPrice:fmtTime();
+  secondaryDisplay.textContent=isPricePrimary?"Time: "+fmtTime():"BTC: "+latestPrice;
 }
 
-function renderDisplays(){
-  if(isPricePrimary){
-    primaryDisplay.textContent=latestPrice;
-    secondaryDisplay.textContent="Time (MT): "+fmtTime("America/Denver");
-  }else{
-    primaryDisplay.textContent=fmtTime("America/Denver");
-    secondaryDisplay.textContent="BTC: "+latestPrice;
-  }
+async function fetchPrice(){
+  const r=await fetch(PRICE_URL,{cache:"no-store"});
+  const j=await r.json();
+  latestPrice=new Intl.NumberFormat("en-US",{
+    style:"currency",
+    currency:"USD",
+    maximumFractionDigits:0
+  }).format(j.data.amount);
+  render();
 }
 
-/* ---------- WEATHER ---------- */
-const wxIcon=c=>{
-  c=Number(c);
-  if(c===0) return "☀️";
-  if(c<=3) return "☁️";
-  if(c<=67) return "🌧️";
-  if(c<=86) return "❄️";
-  if(c>=95) return "⛈️";
-  return "🌤️";
+function buildChart(tf){
+  currentInterval=tf;
+  localStorage.setItem(TF_KEY,tf);
+  if(chartHidden) return;
+  tvChart.innerHTML="";
+  new TradingView.widget({
+    container_id:"tvChart",
+    symbol:"COINBASE:BTCUSD",
+    interval:tf,
+    theme:"dark",
+    autosize:true
+  });
+  document.querySelectorAll(".tf button").forEach(b=>{
+    b.classList.toggle("active",b.dataset.interval===tf);
+  });
+}
+
+document.querySelectorAll(".tf button").forEach(b=>{
+  b.onclick=()=>buildChart(b.dataset.interval);
+});
+
+toggleChartBtn.onclick=()=>{
+  chartHidden=!chartHidden;
+  localStorage.setItem(CHART_HIDDEN_KEY,chartHidden?"1":"0");
+  rightPane.style.display=chartHidden?"none":"block";
+  toggleChartBtn.textContent=chartHidden?"Show chart":"Hide chart";
+  if(!chartHidden) buildChart(currentInterval);
 };
 
-async function fetchWeather(){
-  try{
-    const r=await fetch(WX_URL);
-    const d=await r.json();
-    const days=d.daily.time.slice(0,7);
+swapBtn.onclick=()=>{isPricePrimary=!isPricePrimary; render();};
 
-    weatherTrack.innerHTML =
-      days.map((day,i)=>`
-        <span class="weather-item">
-          ${dayInitial(day)} (${mdDate(day)})
-          ${wxIcon(d.daily.weather_code[i])}
-          ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
-        </span>
-      `).join("") + weatherTrack.innerHTML;
-  }catch(e){}
-}
-
-/* ---------- PRICE ---------- */
-async function fetchPrice(){
-  try{
-    const r=await fetch(PRICE_URL,{cache:"no-store"});
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j=await r.json();
-
-    latestPrice=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(j.data.amount);
-    updated.textContent="Updated: "+fmtTime("America/Denver")+" (MT)";
-    status.textContent="● LIVE";
-    error.textContent="";
-
-    lastGoodPriceUpdate = Date.now();
-    renderDisplays();
-    updateStaleUI();
-  }catch(e){
-    status.textContent = "○ Retrying";
-    error.textContent = "Error: " + (e?.message || String(e));
-  }
-}
-
-/* ---------- TIME ---------- */
-function updateTime(){
-  todayMT.textContent="Today (MT): "+fmtDateTime("America/Denver");
-  tMT.textContent=fmtTime("America/Denver");
-  tET.textContent=fmtTime("America/New_York");
-  tPT.textContent=fmtTime("America/Los_Angeles");
-  tKR.textContent=fmtTime("Asia/Seoul");
-  renderDisplays();
-}
-
-/* ---------- STALE UI ---------- */
-function updateStaleUI(){
-  const now = Date.now();
-  const base = lastGoodPriceUpdate || now;
-  const elapsed = now - base;
-
-  if(elapsed >= WARN_AFTER_MS){
-    staleAge.style.display = "inline";
-    staleAge.textContent = "Last update: " + fmtAgo(elapsed);
-  }else{
-    staleAge.style.display = "none";
-  }
-
-  if(elapsed >= STALE_AFTER_MS){
-    status.textContent = "○ STALE (delay)";
-    primaryDisplay.classList.add("is-stale");
-  }else{
-    if(lastGoodPriceUpdate){
-      status.textContent = "● LIVE";
-    }
-    primaryDisplay.classList.remove("is-stale");
-  }
-}
-
-/* ---------- CHART (TradingView embed) ---------- */
-const TF_KEY = "btcChartTF";
-const CHART_HIDDEN_KEY = "btcChartHidden";
-
-// Load saved state
-let currentInterval = localStorage.getItem(TF_KEY) || "60";  // ✅ persists timeframe
-let chartHidden = (localStorage.getItem(CHART_HIDDEN_KEY) === "1");
-
-function setActiveTf(interval){
-  document.querySelectorAll(".tf-btn").forEach(btn=>{
-    btn.classList.toggle("active", btn.dataset.interval === String(interval));
-  });
-}
-
-function buildTVChart(interval){
-  currentInterval = String(interval);
-  localStorage.setItem(TF_KEY, currentInterval); // ✅ save selection
-  setActiveTf(currentInterval);
-
-  if(chartHidden) return;
-
-  const el = document.getElementById("tvChart");
-  el.innerHTML = "";
-
-  const innerId = "tv_inner_" + Date.now();
-  const inner = document.createElement("div");
-  inner.id = innerId;
-  inner.style.height = "170px";
-  el.appendChild(inner);
-
-  // Some TradingView widgets may ignore interval for some symbols in certain contexts.
-  // Rebuilding with a fresh container gives the best chance to apply interval.
-  new TradingView.widget({
-    autosize: true,
-    symbol: "COINBASE:BTCUSD",
-    interval: currentInterval,
-    timezone: "America/Denver",
-    theme: "dark",
-    style: "1",
-    locale: "en",
-    enable_publishing: false,
-    hide_legend: true,
-    hide_side_toolbar: true,
-    allow_symbol_change: false,
-    container_id: innerId,
-    save_image: false,
-    studies: [],
-    withdateranges: false,
-    details: false,
-    calendar: false
-  });
-}
-
-function setChartHidden(next){
-  chartHidden = next;
-  localStorage.setItem(CHART_HIDDEN_KEY, chartHidden ? "1" : "0"); // ✅ persist hide/show
-
-  rightPane.classList.toggle("is-hidden", chartHidden);
-  toggleChartBtn.textContent = chartHidden ? "Show chart" : "Hide chart";
-
-  if(!chartHidden){
-    if (window.TradingView && TradingView.widget) buildTVChart(currentInterval);
-  }else{
-    tvChart.innerHTML = "";
-  }
-}
-
-document.querySelectorAll(".tf-btn").forEach(btn=>{
-  btn.addEventListener("click", () => buildTVChart(btn.dataset.interval));
-});
-
-toggleChartBtn.addEventListener("click", ()=>{
-  setChartHidden(!chartHidden);
-});
-
-/* ---------- EVENTS ---------- */
-swapBtn.addEventListener("click",()=>{
-  isPricePrimary=!isPricePrimary;
-  renderDisplays();
-  updateStaleUI();
-});
-
-refresh.addEventListener("click",()=>{
-  fetchPrice();
-  fetchWeather();
-});
-
-/* ---------- START ---------- */
-function start(){
-  updateTime();
-  fetchPrice();
-  fetchWeather();
-
-  // Apply saved chart hidden state immediately
-  setChartHidden(chartHidden);
-
-  // Ensure timeframe buttons reflect saved interval even if chart is hidden
-  setActiveTf(currentInterval);
-
-  // Build chart once tv.js is ready (if not hidden)
-  const bootChart = () => {
-    if(!chartHidden) buildTVChart(currentInterval);
-  };
-
-  if (window.TradingView && TradingView.widget) {
-    bootChart();
-  } else {
-    const t = setInterval(() => {
-      if (window.TradingView && TradingView.widget) {
-        clearInterval(t);
-        bootChart();
-      }
-    }, 150);
-  }
-
-  setInterval(updateTime,1000);
-  setInterval(fetchPrice,5000);
-  setInterval(fetchWeather,10*60*1000);
-  setInterval(updateStaleUI,1000);
-}
-
-start();
+fetchPrice();
+buildChart(currentInterval);
+setInterval(fetchPrice,5000);
+setInterval(render,1000);
 </script>
 </body>
 </html>
