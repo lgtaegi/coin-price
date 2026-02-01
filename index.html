@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>BTC Live Price</title>
+<title>BTC Dashboard</title>
 
 <style>
 :root{
@@ -34,36 +34,63 @@ body{
   border-radius:14px;
 }
 
+.topbar{
+  display:flex;
+  justify-content:flex-end;
+}
+
+.swap-btn{
+  font-size:12px;
+  padding:4px 8px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.04);
+  color:var(--muted);
+  cursor:pointer;
+}
+.swap-btn:hover{
+  background:rgba(255,255,255,0.08);
+}
+
 h1{
-  margin:0 0 10px;
+  margin:6px 0 10px;
   font-size:20px;
 }
 
-/* ---------- tiny header ---------- */
+.primary{
+  font-size:44px;
+  font-weight:800;
+  margin:14px 0 2px;
+  color:var(--green);
+}
+
+.secondary{
+  font-size:13px;
+  color:var(--muted2);
+}
+
 .tinybar{
   font-size:12px;
   color:var(--muted2);
-  margin-bottom:10px;
+  margin-bottom:6px;
 }
 
-/* ---------- weather marquee ---------- */
+/* weather marquee */
 .weather-marquee{
-  position:relative;
   overflow:hidden;
   border-top:1px solid var(--border);
   border-bottom:1px solid var(--border);
   padding:6px 0;
-  margin-top:6px;
+  margin-bottom:10px;
 }
 
 .weather-track{
   display:inline-flex;
   gap:28px;
   white-space:nowrap;
-  will-change:transform;
-  animation: scroll-left 120s linear infinite;
-  color:var(--muted);
+  animation:scroll-left 84s linear infinite;
   font-size:11px;
+  color:var(--muted);
 }
 
 .weather-item{
@@ -73,15 +100,12 @@ h1{
 }
 
 @keyframes scroll-left{
-  from{ transform:translateX(100%); }
-  to{ transform:translateX(-100%); }
+  from{transform:translateX(100%);}
+  to{transform:translateX(-100%);}
 }
 
-/* accessibility */
 @media (prefers-reduced-motion: reduce){
-  .weather-track{
-    animation:none;
-  }
+  .weather-track{animation:none;}
 }
 
 .row{
@@ -89,7 +113,6 @@ h1{
   gap:12px;
   flex-wrap:wrap;
   align-items:center;
-  margin-top:10px;
 }
 
 .pill{
@@ -107,13 +130,6 @@ button{
   background:rgba(255,255,255,0.04);
   color:var(--text);
   cursor:pointer;
-}
-
-.price{
-  font-size:44px;
-  font-weight:800;
-  margin:14px 0;
-  color:var(--green);
 }
 
 .times{
@@ -141,11 +157,15 @@ button{
 
 <body>
 <div class="card">
-  <h1>Bitcoin Price (BTC-USD)</h1>
+
+  <div class="topbar">
+    <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
+  </div>
+
+  <h1>Bitcoin Dashboard</h1>
 
   <div class="tinybar" id="todayMT">Today (MT): -</div>
 
-  <!-- 🌤️ Weather marquee -->
   <div class="weather-marquee">
     <div id="weatherTrack" class="weather-track">
       <span class="weather-item">Loading weather…</span>
@@ -158,7 +178,8 @@ button{
     <button id="refresh">Refresh</button>
   </div>
 
-  <div id="price" class="price">-</div>
+  <div id="primaryDisplay" class="primary">-</div>
+  <div id="secondaryDisplay" class="secondary">-</div>
 
   <div class="times">
     <div class="time-row"><span>Salt Lake City (MT)</span><span id="tMT">-</span></div>
@@ -171,71 +192,86 @@ button{
 </div>
 
 <script>
-/* ---------------- price ---------------- */
+/* ---------- CONFIG ---------- */
 const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
-
-/* ---------------- weather ---------------- */
 const WX_URL="https://api.open-meteo.com/v1/forecast?latitude=40.7608&longitude=-111.8910&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America/Denver";
 
-const wxIcon = c=>{
+let isPricePrimary=true;
+let latestPrice="-";
+
+/* ---------- HELPERS ---------- */
+const fmtTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
+const fmtDateTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"short",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
+
+function renderDisplays(){
+  if(isPricePrimary){
+    primaryDisplay.textContent=latestPrice;
+    secondaryDisplay.textContent="Time (MT): "+fmtTime("America/Denver");
+  }else{
+    primaryDisplay.textContent=fmtTime("America/Denver");
+    secondaryDisplay.textContent="BTC: "+latestPrice;
+  }
+}
+
+/* ---------- WEATHER ---------- */
+const wxIcon=c=>{
   c=Number(c);
   if(c===0) return "☀️";
   if(c<=3) return "☁️";
-  if(c>=51 && c<=67) return "🌧️";
-  if(c>=71 && c<=86) return "❄️";
+  if(c<=67) return "🌧️";
+  if(c<=86) return "❄️";
   if(c>=95) return "⛈️";
   return "🌤️";
 };
-
-const wxText = c=>{
-  c=Number(c);
-  if(c===0) return "Clear";
-  if(c<=3) return "Cloudy";
-  if(c<=67) return "Rain";
-  if(c<=86) return "Snow";
-  if(c>=95) return "Storm";
-  return "Weather";
-};
-
-const weatherTrack=document.getElementById("weatherTrack");
-
-/* ---------------- time ---------------- */
-const fmt=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"short",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
-
-function updateTime(){
-  document.getElementById("todayMT").textContent="Today (MT): "+fmt("America/Denver");
-  tMT.textContent=fmt("America/Denver");
-  tET.textContent=fmt("America/New_York");
-  tPT.textContent=fmt("America/Los_Angeles");
-  tKR.textContent=fmt("Asia/Seoul");
-}
 
 async function fetchWeather(){
   const r=await fetch(WX_URL);
   const d=await r.json();
   const days=d.daily.time.slice(0,7);
-  const html=days.map((day,i)=>`
+  weatherTrack.innerHTML=days.map((_,i)=>`
     <span class="weather-item">
       ${wxIcon(d.daily.weather_code[i])}
-      ${day.slice(5)} ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
-      ${wxText(d.daily.weather_code[i])}
+      ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
     </span>
-  `).join("");
-  weatherTrack.innerHTML=html+html; // loop smoothly
+  `).join("") + weatherTrack.innerHTML;
 }
 
+/* ---------- PRICE ---------- */
 async function fetchPrice(){
   const r=await fetch(PRICE_URL,{cache:"no-store"});
   const j=await r.json();
-  price.textContent=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(j.data.amount);
-  updated.textContent="Updated: "+fmt("America/Denver");
+  latestPrice=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(j.data.amount);
+  updated.textContent="Updated: "+fmtTime("America/Denver")+" (MT)";
   status.textContent="● LIVE";
+  renderDisplays();
 }
 
+/* ---------- TIME ---------- */
+function updateTime(){
+  todayMT.textContent="Today (MT): "+fmtDateTime("America/Denver");
+  tMT.textContent=fmtTime("America/Denver");
+  tET.textContent=fmtTime("America/New_York");
+  tPT.textContent=fmtTime("America/Los_Angeles");
+  tKR.textContent=fmtTime("Asia/Seoul");
+  renderDisplays();
+}
+
+/* ---------- EVENTS ---------- */
+swapBtn.addEventListener("click",()=>{
+  isPricePrimary=!isPricePrimary;
+  renderDisplays();
+});
+
+refresh.addEventListener("click",()=>{
+  fetchPrice();
+  fetchWeather();
+});
+
+/* ---------- START ---------- */
 function start(){
   updateTime();
-  fetchWeather();
   fetchPrice();
+  fetchWeather();
   setInterval(updateTime,1000);
   setInterval(fetchPrice,5000);
   setInterval(fetchWeather,10*60*1000);
