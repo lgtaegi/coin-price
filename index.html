@@ -269,9 +269,6 @@ button{
 .right-pane.is-hidden .tf{
   display:none;
 }
-.right-pane.is-hidden .chart-title{
-  opacity:0.9;
-}
 </style>
 </head>
 
@@ -361,8 +358,7 @@ function dayInitial(dateStr){
   return ["Su","M","T","W","Th","F","Sa"][d.getDay()];
 }
 function mdDate(dateStr){
-  // dateStr: "YYYY-MM-DD" -> "MM/DD"
-  return dateStr.slice(5).replace("-", "/");
+  return dateStr.slice(5).replace("-", "/"); // "MM/DD"
 }
 
 function fmtAgo(ms){
@@ -407,9 +403,7 @@ async function fetchWeather(){
           ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
         </span>
       `).join("") + weatherTrack.innerHTML;
-  }catch(e){
-    // quiet
-  }
+  }catch(e){}
 }
 
 /* ---------- PRICE ---------- */
@@ -468,8 +462,12 @@ function updateStaleUI(){
 }
 
 /* ---------- CHART (TradingView embed) ---------- */
-let currentInterval = localStorage.getItem("btcChartTF") || "60"; // default 1h
-let chartHidden = false;
+const TF_KEY = "btcChartTF";
+const CHART_HIDDEN_KEY = "btcChartHidden";
+
+// Load saved state
+let currentInterval = localStorage.getItem(TF_KEY) || "60";  // ✅ persists timeframe
+let chartHidden = (localStorage.getItem(CHART_HIDDEN_KEY) === "1");
 
 function setActiveTf(interval){
   document.querySelectorAll(".tf-btn").forEach(btn=>{
@@ -479,7 +477,7 @@ function setActiveTf(interval){
 
 function buildTVChart(interval){
   currentInterval = String(interval);
-  localStorage.setItem("btcChartTF", currentInterval); // ✅ 저장
+  localStorage.setItem(TF_KEY, currentInterval); // ✅ save selection
   setActiveTf(currentInterval);
 
   if(chartHidden) return;
@@ -493,6 +491,8 @@ function buildTVChart(interval){
   inner.style.height = "170px";
   el.appendChild(inner);
 
+  // Some TradingView widgets may ignore interval for some symbols in certain contexts.
+  // Rebuilding with a fresh container gives the best chance to apply interval.
   new TradingView.widget({
     autosize: true,
     symbol: "COINBASE:BTCUSD",
@@ -516,14 +516,14 @@ function buildTVChart(interval){
 
 function setChartHidden(next){
   chartHidden = next;
+  localStorage.setItem(CHART_HIDDEN_KEY, chartHidden ? "1" : "0"); // ✅ persist hide/show
+
   rightPane.classList.toggle("is-hidden", chartHidden);
   toggleChartBtn.textContent = chartHidden ? "Show chart" : "Hide chart";
 
   if(!chartHidden){
-    // rebuild chart immediately
     if (window.TradingView && TradingView.widget) buildTVChart(currentInterval);
   }else{
-    // clear to reduce CPU
     tvChart.innerHTML = "";
   }
 }
@@ -554,14 +554,24 @@ function start(){
   fetchPrice();
   fetchWeather();
 
-  // chart default
+  // Apply saved chart hidden state immediately
+  setChartHidden(chartHidden);
+
+  // Ensure timeframe buttons reflect saved interval even if chart is hidden
+  setActiveTf(currentInterval);
+
+  // Build chart once tv.js is ready (if not hidden)
+  const bootChart = () => {
+    if(!chartHidden) buildTVChart(currentInterval);
+  };
+
   if (window.TradingView && TradingView.widget) {
-    buildTVChart(currentInterval);
+    bootChart();
   } else {
     const t = setInterval(() => {
       if (window.TradingView && TradingView.widget) {
         clearInterval(t);
-        buildTVChart(currentInterval);
+        bootChart();
       }
     }, 150);
   }
