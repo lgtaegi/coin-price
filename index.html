@@ -40,6 +40,30 @@
       color: var(--text);
     }
 
+    .tinybar{
+      font-size: 12px;
+      color: var(--muted2);
+      line-height: 1.35;
+      margin-bottom: 10px;
+    }
+    .tinybar .line{
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: baseline;
+    }
+    .tinybar .dot{
+      opacity: 0.7;
+    }
+    .forecast{
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 6px;
+      white-space: nowrap;
+      overflow-x: auto;
+      padding-bottom: 2px;
+    }
+
     .row {
       display: flex;
       gap: 12px;
@@ -126,6 +150,16 @@
   <div class="card">
     <h1>Bitcoin Price (BTC-USD)</h1>
 
+    <!-- Tiny header: MT date/time + local weather + 7-day forecast -->
+    <div class="tinybar" aria-label="Today and weather">
+      <div class="line">
+        <span id="todayMT">Today: -</span>
+        <span class="dot">•</span>
+        <span id="wxNow">Weather: -</span>
+      </div>
+      <div id="wx7" class="forecast">7-day: -</div>
+    </div>
+
     <div class="row">
       <div id="status" class="pill">● Connecting…</div>
       <div id="updated" class="pill">Last updated: -</div>
@@ -140,7 +174,7 @@
 
     <div class="times" aria-label="World clocks">
       <div class="time-row">
-        <div class="label">Local time</div>
+        <div class="label">Salt Lake City, UT (Mountain Time)</div>
         <div id="tLocal" class="val">-</div>
       </div>
       <div class="time-row">
@@ -161,10 +195,32 @@
   </div>
 
   <script>
-    // Free Coinbase public API (no key required, CORS-friendly)
-    const URL = "https://api.coinbase.com/v2/prices/spot?currency=USD";
+    // =========================
+    // PRICE (Coinbase, free)
+    // =========================
+    const PRICE_URL = "https://api.coinbase.com/v2/prices/spot?currency=USD";
     const INTERVAL_MS = 5000;
 
+    // =========================
+    // WEATHER (Open-Meteo, free, no key)
+    // Salt Lake City, UT (approx): 40.7608, -111.8910
+    // =========================
+    const SLC = { lat: 40.7608, lon: -111.8910 };
+    const WX_URL =
+      `https://api.open-meteo.com/v1/forecast` +
+      `?latitude=${SLC.lat}&longitude=${SLC.lon}` +
+      `&current=temperature_2m,weather_code` +
+      `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+      `&temperature_unit=fahrenheit` +
+      `&timezone=America/Denver`;
+
+    // Time zones
+    const TZ_MT = "America/Denver";       // Salt Lake City (Mountain Time)
+    const TZ_ET = "America/New_York";
+    const TZ_PT = "America/Los_Angeles";
+    const TZ_KR = "Asia/Seoul";
+
+    // Elements
     const elPrice = document.getElementById("price");
     const elStatus = document.getElementById("status");
     const elUpdated = document.getElementById("updated");
@@ -176,7 +232,39 @@
     const elPT = document.getElementById("tPT");
     const elKR = document.getElementById("tKR");
 
-    let timer = null;
+    const elTodayMT = document.getElementById("todayMT");
+    const elWxNow = document.getElementById("wxNow");
+    const elWx7 = document.getElementById("wx7");
+
+    // Weather code mapping (Open-Meteo WMO codes)
+    function wxText(code) {
+      const c = Number(code);
+      if (c === 0) return "Clear";
+      if (c === 1) return "Mostly clear";
+      if (c === 2) return "Partly cloudy";
+      if (c === 3) return "Overcast";
+      if (c === 45 || c === 48) return "Fog";
+      if (c === 51) return "Light drizzle";
+      if (c === 53) return "Drizzle";
+      if (c === 55) return "Heavy drizzle";
+      if (c === 56 || c === 57) return "Freezing drizzle";
+      if (c === 61) return "Light rain";
+      if (c === 63) return "Rain";
+      if (c === 65) return "Heavy rain";
+      if (c === 66 || c === 67) return "Freezing rain";
+      if (c === 71) return "Light snow";
+      if (c === 73) return "Snow";
+      if (c === 75) return "Heavy snow";
+      if (c === 77) return "Snow grains";
+      if (c === 80) return "Light showers";
+      if (c === 81) return "Showers";
+      if (c === 82) return "Heavy showers";
+      if (c === 85) return "Snow showers";
+      if (c === 86) return "Heavy snow showers";
+      if (c === 95) return "Thunderstorm";
+      if (c === 96 || c === 99) return "Thunderstorm w/ hail";
+      return "Weather";
+    }
 
     function fmtUSD(n) {
       return new Intl.NumberFormat("en-US", {
@@ -185,9 +273,8 @@
       }).format(n);
     }
 
-    function fmtTime(tz) {
-      // Comfortable, readable, no loud styling: just a clean time + date
-      const opt = {
+    function fmtDateTime(tz) {
+      return new Intl.DateTimeFormat("en-US", {
         timeZone: tz,
         weekday: "short",
         year: "numeric",
@@ -197,28 +284,37 @@
         minute: "2-digit",
         second: "2-digit",
         hour12: true
-      };
-      return new Intl.DateTimeFormat("en-US", opt).format(new Date());
+      }).format(new Date());
     }
 
-    function updateClocks() {
-      // Local time (device timezone)
-      const localOpt = {
-        weekday: "short",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
+    function fmtTimeOnly(tz) {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
         hour12: true
-      };
-      elLocal.textContent = new Intl.DateTimeFormat("en-US", localOpt).format(new Date());
+      }).format(new Date());
+    }
 
-      // US Eastern / US Pacific / Korea
-      elET.textContent = fmtTime("America/New_York");
-      elPT.textContent = fmtTime("America/Los_Angeles");
-      elKR.textContent = fmtTime("Asia/Seoul");
+    function fmtDayShort(isoDate) {
+      // isoDate like "2026-01-31" (already in America/Denver timezone from API)
+      const [y, m, d] = isoDate.split("-").map(Number);
+      const dt = new Date(Date.UTC(y, m - 1, d));
+      return new Intl.DateTimeFormat("en-US", { weekday: "short" }).format(dt);
+    }
+
+    function updateClocks() {
+      // Local time fixed to Mountain Time (Salt Lake City)
+      elLocal.textContent = fmtDateTime(TZ_MT);
+
+      // Others
+      elET.textContent = fmtDateTime(TZ_ET);
+      elPT.textContent = fmtDateTime(TZ_PT);
+      elKR.textContent = fmtDateTime(TZ_KR);
+
+      // Top tiny bar: Today (MT)
+      elTodayMT.textContent = "Today (MT): " + fmtDateTime(TZ_MT);
     }
 
     async function fetchPrice() {
@@ -226,17 +322,15 @@
       elStatus.textContent = "● Updating…";
 
       try {
-        const res = await fetch(URL, { cache: "no-store" });
+        const res = await fetch(PRICE_URL, { cache: "no-store" });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const json = await res.json();
         const amount = Number(json?.data?.amount);
-        if (!Number.isFinite(amount)) {
-          throw new Error("Unexpected response format");
-        }
+        if (!Number.isFinite(amount)) throw new Error("Unexpected response format");
 
         elPrice.textContent = fmtUSD(amount);
-        elUpdated.textContent = "Last updated: " + new Date().toLocaleTimeString("en-US");
+        elUpdated.textContent = "Last updated: " + fmtTimeOnly(TZ_MT) + " (MT)";
         elStatus.textContent = "● LIVE";
       } catch (err) {
         elStatus.textContent = "○ Retrying";
@@ -244,20 +338,66 @@
       }
     }
 
-    function start() {
-      updateClocks();           // run immediately
-      fetchPrice();             // run immediately
-      timer = setInterval(() => {
-        updateClocks();
-        fetchPrice();
-      }, INTERVAL_MS);
+    async function fetchWeather() {
+      // Keep weather errors subtle (don’t spam user)
+      try {
+        const res = await fetch(WX_URL, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
 
-      // Make clocks feel real-time even between price refreshes
+        const tNow = data?.current?.temperature_2m;
+        const cNow = data?.current?.weather_code;
+
+        if (Number.isFinite(tNow)) {
+          elWxNow.textContent = `Weather (SLC): ${Math.round(tNow)}°F · ${wxText(cNow)}`;
+        } else {
+          elWxNow.textContent = "Weather (SLC): -";
+        }
+
+        const dates = data?.daily?.time || [];
+        const tMax = data?.daily?.temperature_2m_max || [];
+        const tMin = data?.daily?.temperature_2m_min || [];
+        const codes = data?.daily?.weather_code || [];
+
+        if (dates.length) {
+          // Show 7-day compact row: "Sat 38/26 Clear · Sun 40/28 Partly cloudy · ..."
+          const parts = dates.slice(0, 7).map((d, i) => {
+            const day = fmtDayShort(d);
+            const hi = Number.isFinite(tMax[i]) ? Math.round(tMax[i]) : "-";
+            const lo = Number.isFinite(tMin[i]) ? Math.round(tMin[i]) : "-";
+            const w = wxText(codes[i]);
+            return `${day} ${hi}/${lo}° ${w}`;
+          });
+          elWx7.textContent = "7-day: " + parts.join("  ·  ");
+        } else {
+          elWx7.textContent = "7-day: -";
+        }
+      } catch (err) {
+        // If weather fails, keep it minimal (no big red error)
+        if (!elWxNow.textContent || elWxNow.textContent.includes("-")) {
+          elWxNow.textContent = "Weather (SLC): unavailable";
+        }
+      }
+    }
+
+    function start() {
+      updateClocks();
+      fetchWeather();
+      fetchPrice();
+
+      // Price refresh
+      setInterval(fetchPrice, INTERVAL_MS);
+
+      // Clocks: real-time feel
       setInterval(updateClocks, 1000);
+
+      // Weather: update occasionally (every 10 minutes)
+      setInterval(fetchWeather, 10 * 60 * 1000);
     }
 
     btnRefresh.addEventListener("click", () => {
       updateClocks();
+      fetchWeather();
       fetchPrice();
     });
 
