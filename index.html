@@ -14,6 +14,7 @@
   --muted:#b3b3b3;
   --muted2:#9a9a9a;
   --green:#0f6d3a;
+  --stale:#7a8a4a; /* toned-down olive/green for stale */
   --error:#ff6b6b;
 }
 
@@ -73,6 +74,16 @@ h1{
   font-size:12px;
   color:var(--muted2);
   margin-bottom:6px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:baseline;
+}
+
+.stale-age{
+  font-size:11px;
+  color:var(--muted);
+  display:none; /* hidden until needed */
 }
 
 /* weather marquee */
@@ -106,6 +117,21 @@ h1{
 
 @media (prefers-reduced-motion: reduce){
   .weather-track{animation:none;}
+}
+
+/* stale pulse on primary display only (subtle) */
+@keyframes stalePulse{
+  0%,100%{opacity:1}
+  50%{opacity:.55}
+}
+
+.primary.is-stale{
+  color:var(--stale);
+  animation:stalePulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce){
+  .primary.is-stale{animation:none;}
 }
 
 .row{
@@ -164,7 +190,10 @@ button{
 
   <h1>Bitcoin Dashboard</h1>
 
-  <div class="tinybar" id="todayMT">Today (MT): -</div>
+  <div class="tinybar">
+    <span id="todayMT">Today (MT): -</span>
+    <span id="staleAge" class="stale-age">Last update: -</span>
+  </div>
 
   <div class="weather-marquee">
     <div id="weatherTrack" class="weather-track">
@@ -196,8 +225,16 @@ button{
 const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
 const WX_URL="https://api.open-meteo.com/v1/forecast?latitude=40.7608&longitude=-111.8910&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America/Denver";
 
+/* stale thresholds */
+const WARN_AFTER_MS = 45_000;  // show "Last update: ..." after 45s
+const STALE_AFTER_MS = 60_000; // stale mode after 60s
+
 let isPricePrimary=true;
 let latestPrice="-";
+
+/* Track last successful updates */
+let lastGoodPriceUpdate = 0;  // ms epoch, updated on successful fetchPrice
+let lastGoodTimeTick = Date.now(); // device clock tick (always moves), used as fallback visibility
 
 /* ---------- HELPERS ---------- */
 const fmtTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
@@ -206,6 +243,13 @@ const fmtDateTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"sh
 function dayInitial(dateStr){
   const d=new Date(dateStr+"T00:00:00");
   return ["Su","M","T","W","Th","F","Sa"][d.getDay()];
+}
+
+function fmtAgo(ms){
+  const s = Math.max(0, Math.floor(ms/1000));
+  const m = Math.floor(s/60);
+  const r = s % 60;
+  return `${m}m ${String(r).padStart(2,"0")}s ago`;
 }
 
 function renderDisplays(){
@@ -230,28 +274,44 @@ const wxIcon=c=>{
 };
 
 async function fetchWeather(){
-  const r=await fetch(WX_URL);
-  const d=await r.json();
-  const days=d.daily.time.slice(0,7);
+  try{
+    const r=await fetch(WX_URL);
+    const d=await r.json();
+    const days=d.daily.time.slice(0,7);
 
-  weatherTrack.innerHTML =
-    days.map((day,i)=>`
-      <span class="weather-item">
-        ${dayInitial(day)}
-        ${wxIcon(d.daily.weather_code[i])}
-        ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
-      </span>
-    `).join("") + weatherTrack.innerHTML;
+    weatherTrack.innerHTML =
+      days.map((day,i)=>`
+        <span class="weather-item">
+          ${dayInitial(day)}
+          ${wxIcon(d.daily.weather_code[i])}
+          ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
+        </span>
+      `).join("") + weatherTrack.innerHTML;
+  }catch(e){
+    /* keep weather failure quiet */
+  }
 }
 
 /* ---------- PRICE ---------- */
 async function fetchPrice(){
-  const r=await fetch(PRICE_URL,{cache:"no-store"});
-  const j=await r.json();
-  latestPrice=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(j.data.amount);
-  updated.textContent="Updated: "+fmtTime("America/Denver")+" (MT)";
-  status.textContent="● LIVE";
-  renderDisplays();
+  try{
+    const r=await fetch(PRICE_URL,{cache:"no-store"});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    const j=await r.json();
+
+    latestPrice=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(j.data.amount);
+    updated.textContent="Updated: "+fmtTime("America/Denver")+" (MT)";
+    status.textContent="● LIVE";
+    error.textContent="";
+
+    lastGoodPriceUpdate = Date.now(); // ✅ success timestamp
+    renderDisplays();
+    updateStaleUI(); // refresh stale UI immediately
+  }catch(e){
+    // Do not overwrite lastGoodPriceUpdate here (we want stale to trigger)
+    status.textContent = "○ Retrying";
+    error.textContent = "Error: " + (e?.message || String(e));
+  }
 }
 
 /* ---------- TIME ---------- */
@@ -261,13 +321,46 @@ function updateTime(){
   tET.textContent=fmtTime("America/New_York");
   tPT.textContent=fmtTime("America/Los_Angeles");
   tKR.textContent=fmtTime("Asia/Seoul");
+
+  lastGoodTimeTick = Date.now();
   renderDisplays();
+}
+
+/* ---------- STALE UI (mix of 1/2/3) ---------- */
+function updateStaleUI(){
+  const now = Date.now();
+
+  // If we never had a successful price fetch yet, treat as stale-ish after a minute from page load
+  const base = lastGoodPriceUpdate || now; 
+  const elapsed = now - base;
+
+  // (3) show "Last update: Xm Ys ago" after 45s, hide otherwise
+  if(elapsed >= WARN_AFTER_MS){
+    staleAge.style.display = "inline";
+    staleAge.textContent = "Last update: " + fmtAgo(elapsed);
+  }else{
+    staleAge.style.display = "none";
+  }
+
+  // (2) pill changes + (1) subtle pulse on primary display after 60s
+  if(elapsed >= STALE_AFTER_MS){
+    status.textContent = "○ STALE (delay)";
+    primaryDisplay.classList.add("is-stale");
+  }else{
+    // Only restore to LIVE if we have had at least one success
+    if(lastGoodPriceUpdate){
+      status.textContent = "● LIVE";
+    }
+    primaryDisplay.classList.remove("is-stale");
+  }
 }
 
 /* ---------- EVENTS ---------- */
 swapBtn.addEventListener("click",()=>{
   isPricePrimary=!isPricePrimary;
   renderDisplays();
+  // stale effect should follow the primary display (class toggles on primaryDisplay)
+  updateStaleUI();
 });
 
 refresh.addEventListener("click",()=>{
@@ -280,9 +373,13 @@ function start(){
   updateTime();
   fetchPrice();
   fetchWeather();
+
   setInterval(updateTime,1000);
   setInterval(fetchPrice,5000);
   setInterval(fetchWeather,10*60*1000);
+
+  // check stale state every second (lightweight)
+  setInterval(updateStaleUI,1000);
 }
 
 start();
