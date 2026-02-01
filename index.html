@@ -4,22 +4,78 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>BTC 실시간 가격</title>
+
   <style>
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 24px; }
-    .card { max-width: 560px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 14px; }
-    h1 { margin: 0 0 6px; font-size: 20px; }
-    .price { font-size: 44px; font-weight: 800; margin: 10px 0; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
-    .pill { padding: 6px 10px; border-radius: 999px; border: 1px solid #ddd; font-size: 13px; }
-    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
-    button:active { transform: translateY(1px); }
-    .muted { color: #666; font-size: 13px; }
-    .err { color: #b00020; font-size: 13px; margin-top: 8px; }
+    body {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      margin: 0;
+      padding: 24px;
+      background: #ffffff;
+    }
+
+    .card {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 14px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 20px;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .pill {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #ddd;
+      font-size: 13px;
+    }
+
+    button {
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    button:active {
+      transform: translateY(1px);
+    }
+
+    .price {
+      font-size: 44px;
+      font-weight: 800;
+      margin: 12px 0;
+      color: #16a34a; /* 보기 편한 짙은 초록 */
+    }
+
+    .muted {
+      color: #666;
+      font-size: 13px;
+    }
+
+    .err {
+      color: #b00020;
+      font-size: 13px;
+      margin-top: 8px;
+    }
   </style>
 </head>
+
 <body>
   <div class="card">
     <h1>비트코인 가격 (BTC-USD)</h1>
+
     <div class="row">
       <div id="status" class="pill">● 연결 중…</div>
       <div id="updated" class="pill">마지막 업데이트: -</div>
@@ -27,12 +83,16 @@
     </div>
 
     <div id="price" class="price">-</div>
-    <div class="muted">5초마다 자동 갱신 (무료 / 서버 없음)</div>
+
+    <div class="muted">
+      5초마다 자동 갱신 (무료 / 서버 없음)
+    </div>
+
     <div id="error" class="err"></div>
   </div>
 
   <script>
-    // ✅ 무료 + CORS 잘 되는 편인 Coinbase 공개 엔드포인트 사용 (키 필요 없음)
+    // 무료 + CORS 문제 거의 없는 Coinbase 공개 API
     const URL = "https://api.coinbase.com/v2/prices/spot?currency=USD";
     const INTERVAL_MS = 5000;
 
@@ -45,7 +105,10 @@
     let timer = null;
 
     function fmtUSD(n) {
-      return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+      return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD"
+      }).format(n);
     }
 
     async function fetchPrice() {
@@ -58,20 +121,22 @@
 
         const json = await res.json();
         const amount = Number(json?.data?.amount);
-        if (!Number.isFinite(amount)) throw new Error("응답 형식이 예상과 다릅니다.");
+        if (!Number.isFinite(amount)) {
+          throw new Error("응답 형식 오류");
+        }
 
         elPrice.textContent = fmtUSD(amount);
-        const now = new Date();
-        elUpdated.textContent = "마지막 업데이트: " + now.toLocaleTimeString("ko-KR");
+        elUpdated.textContent =
+          "마지막 업데이트: " + new Date().toLocaleTimeString("ko-KR");
         elStatus.textContent = "● LIVE";
-      } catch (e) {
+      } catch (err) {
         elStatus.textContent = "○ 재시도 중";
-        elError.textContent = "오류: " + (e?.message || String(e));
+        elError.textContent = "오류: " + err.message;
       }
     }
 
     function start() {
-      fetchPrice(); // 즉시 1회
+      fetchPrice(); // 첫 로드 즉시 실행
       timer = setInterval(fetchPrice, INTERVAL_MS);
     }
 
