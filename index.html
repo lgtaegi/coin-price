@@ -479,6 +479,7 @@ function setActiveTf(interval){
 
 function buildTVChart(interval){
   currentInterval = String(interval);
+  localStorage.setItem("btcChartTF", currentInterval); // ✅ 저장
   setActiveTf(currentInterval);
 
   if(chartHidden) return;
