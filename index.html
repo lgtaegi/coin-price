@@ -1,14 +1,3 @@
-<!--
-Version: 1.17
-Date: 2026-02-01
-Updated:
-- Weather refresh changed to every 6 hours with localStorage cache (separate from other timers)
-- Weather marquee made seamless (no “blank time”): two identical segments + continuous loop animation
-- Added an 8-color “Minecraft-like” pixel runner with sword swing (SVG pixel art) inside the marquee (A option)
-- Kept current layout and all existing features from v1.16 (swap, stale, chart TF + hide/show, refresh icon, timezone labels, cents removed)
-Author: lgtaegi
--->
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -25,19 +14,7 @@ Author: lgtaegi
   --muted:#b3b3b3;
   --muted2:#9a9a9a;
   --green:#0f6d3a;
-  --stale:#7a8a4a;
   --error:#ff6b6b;
-  --bright:#f3f3f3;
-
-  /* 8-color dot palette (pixel runner) */
-  --p1:#1a1a1a; /* outline */
-  --p2:#f2c9a0; /* skin */
-  --p3:#2f6fb3; /* shirt */
-  --p4:#1f4f2a; /* pants */
-  --p5:#c9a23a; /* sword */
-  --p6:#8b5a2b; /* hair */
-  --p7:#e7e7e7; /* highlight */
-  --p8:#3b3b3b; /* shadow */
 }
 
 body{
@@ -57,17 +34,9 @@ body{
   border-radius:14px;
 }
 
-.header{
+.topbar{
   display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin:0 0 10px;
-}
-
-h1{
-  margin:0;
-  font-size:20px;
+  justify-content:flex-end;
 }
 
 .swap-btn{
@@ -79,162 +48,71 @@ h1{
   color:var(--muted);
   cursor:pointer;
 }
-.swap-btn:hover{ background:rgba(255,255,255,0.08); }
+.swap-btn:hover{
+  background:rgba(255,255,255,0.08);
+}
+
+h1{
+  margin:6px 0 10px;
+  font-size:20px;
+}
 
 .primary{
   font-size:44px;
   font-weight:800;
   margin:14px 0 2px;
   color:var(--green);
-  letter-spacing:0.2px;
-  white-space:nowrap;
-}
-
-@keyframes stalePulse{
-  0%,100%{opacity:1}
-  50%{opacity:.55}
-}
-.primary.is-stale{
-  color:var(--stale);
-  animation:stalePulse 1.4s ease-in-out infinite;
 }
 
 .secondary{
   font-size:13px;
   color:var(--muted2);
 }
-.secondary.big{
-  font-size:19.5px; /* ~1.5x */
-  color:var(--muted);
-}
 
 .tinybar{
   font-size:12px;
   color:var(--muted2);
   margin-bottom:6px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:baseline;
 }
 
-.stale-age{
-  font-size:11px;
-  color:var(--muted);
-  display:none;
-}
-
-/* ---------- seamless weather marquee ---------- */
+/* weather marquee */
 .weather-marquee{
   overflow:hidden;
   border-top:1px solid var(--border);
   border-bottom:1px solid var(--border);
   padding:6px 0;
   margin-bottom:10px;
-  position:relative;
 }
 
-/* We animate the whole track across -50% (because we duplicate identical segments) */
 .weather-track{
-  display:flex;
-  width:fit-content;
-  will-change:transform;
-  animation:marquee 84s linear infinite; /* 1/3 speed feel */
-}
-
-@keyframes marquee{
-  0%{ transform:translateX(0); }
-  100%{ transform:translateX(-50%); }
-}
-
-.seg{
   display:inline-flex;
   gap:28px;
   white-space:nowrap;
-  padding-right:28px; /* spacing between duplicated halves */
-  align-items:center;
-  flex:0 0 auto;
+  animation:scroll-left 84s linear infinite;
+  font-size:11px;
+  color:var(--muted);
 }
 
 .weather-item{
   display:inline-flex;
   align-items:center;
   gap:6px;
-  font-size:11px;
-  color:var(--muted);
 }
 
-.filler{
-  color:var(--bright);
-  opacity:0.95;
-}
-
-/* Pixel runner container in the marquee */
-.runner{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-}
-
-.runner .label{
-  font-size:11px;
-  color:var(--bright);
-  opacity:0.95;
-}
-
-/* ---------- pixel runner SVG animation ---------- */
-.pixel-svg{
-  width:22px;
-  height:22px;
-  image-rendering:pixelated;
-  shape-rendering:crispEdges;
-  display:block;
-  transform:translateY(0);
-  animation:runBounce 0.55s steps(2) infinite;
-}
-
-@keyframes runBounce{
-  0%,100%{ transform:translateY(0); }
-  50%{ transform:translateY(-1px); }
-}
-
-/* Animate arms/legs inside the SVG via CSS */
-.pixel-svg .legA{
-  transform-origin: 8px 18px;
-  animation:legA 0.55s steps(2) infinite;
-}
-.pixel-svg .legB{
-  transform-origin: 12px 18px;
-  animation:legB 0.55s steps(2) infinite;
-}
-@keyframes legA{ 0%,100%{ transform:rotate(10deg); } 50%{ transform:rotate(-12deg);} }
-@keyframes legB{ 0%,100%{ transform:rotate(-10deg);} 50%{ transform:rotate(12deg);} }
-
-.pixel-svg .armSword{
-  transform-origin: 14px 10px;
-  animation:swing 0.85s steps(3) infinite;
-}
-@keyframes swing{
-  0%{ transform:rotate(-10deg); }
-  40%{ transform:rotate(40deg); }
-  70%{ transform:rotate(12deg); }
-  100%{ transform:rotate(-10deg); }
+@keyframes scroll-left{
+  from{transform:translateX(100%);}
+  to{transform:translateX(-100%);}
 }
 
 @media (prefers-reduced-motion: reduce){
-  .weather-track{ animation:none; }
-  .primary.is-stale{ animation:none; }
-  .pixel-svg{ animation:none; }
-  .pixel-svg .legA, .pixel-svg .legB, .pixel-svg .armSword{ animation:none; }
+  .weather-track{animation:none;}
 }
 
-/* ---------- updated row ---------- */
-.updated-row{
+.row{
   display:flex;
-  align-items:center;
-  justify-content:space-between;
   gap:12px;
-  width:100%;
+  flex-wrap:wrap;
+  align-items:center;
 }
 
 .pill{
@@ -245,44 +123,13 @@ h1{
   color:var(--muted);
 }
 
-.refresh-icon-btn{
-  width:34px;
-  height:34px;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
+button{
+  padding:10px 14px;
   border-radius:10px;
   border:1px solid var(--border);
   background:rgba(255,255,255,0.04);
-  color:var(--muted);
+  color:var(--text);
   cursor:pointer;
-  padding:0;
-}
-.refresh-icon-btn:hover{ background:rgba(255,255,255,0.08); }
-.refresh-icon-btn:active{ transform:translateY(1px); }
-
-.refresh-icon{
-  width:16px;
-  height:16px;
-  display:block;
-}
-
-/* ---------- layout ---------- */
-.main-grid{
-  display:flex;
-  gap:14px;
-  align-items:flex-start;
-  flex-wrap:wrap;
-}
-
-.left-pane{
-  flex:1 1 260px;
-  min-width:240px;
-}
-
-.right-pane{
-  flex:0 0 230px;
-  width:230px;
 }
 
 .times{
@@ -304,74 +151,6 @@ h1{
   color:var(--error);
   font-size:13px;
   margin-top:10px;
-  white-space:pre-wrap;
-}
-
-/* ---------- chart ---------- */
-.chart-card{
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px;
-  background:rgba(255,255,255,0.02);
-}
-
-.chart-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:8px;
-  margin-bottom:8px;
-}
-
-.chart-title{
-  font-size:12px;
-  color:var(--muted2);
-}
-
-.tf{
-  display:flex;
-  gap:6px;
-}
-
-.tf button{
-  padding:5px 8px;
-  border-radius:8px;
-  font-size:11px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
-  color:var(--muted);
-  cursor:pointer;
-}
-
-.tf button:hover{ background:rgba(255,255,255,0.06); }
-
-.tf button.active{
-  background:rgba(255,255,255,0.10);
-  color:var(--text);
-}
-
-#tvChart{
-  height:170px;
-  border-radius:10px;
-  overflow:hidden;
-}
-
-.chart-toggle{
-  width:100%;
-  margin-top:8px;
-  padding:8px 10px;
-  font-size:12px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
-  color:var(--muted);
-  cursor:pointer;
-}
-.chart-toggle:hover{ background:rgba(255,255,255,0.06); }
-
-.right-pane.is-hidden #tvChart,
-.right-pane.is-hidden .tf{
-  display:none;
 }
 </style>
 </head>
@@ -379,481 +158,123 @@ h1{
 <body>
 <div class="card">
 
-  <div class="header">
-    <h1>Bitcoin Dashboard</h1>
+  <div class="topbar">
     <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
   </div>
 
-  <div class="tinybar">
-    <span id="todayMT">-</span>
-    <span id="staleAge" class="stale-age">Last update: -</span>
-  </div>
+  <h1>Bitcoin Dashboard</h1>
 
-  <!-- Seamless marquee: JS will fill segA/segB -->
+  <div class="tinybar" id="todayMT">Today (MT): -</div>
+
   <div class="weather-marquee">
     <div id="weatherTrack" class="weather-track">
-      <div id="segA" class="seg"></div>
-      <div id="segB" class="seg"></div>
+      <span class="weather-item">Loading weather…</span>
     </div>
   </div>
 
-  <div class="main-grid">
-    <div class="left-pane">
-      <div class="updated-row">
-        <div id="updated" class="pill">Updated: -</div>
-
-        <button id="refreshBtn" class="refresh-icon-btn" title="Refresh">
-          <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
-
-      <div id="primaryDisplay" class="primary">-</div>
-      <div id="secondaryDisplay" class="secondary">-</div>
-
-      <div class="times">
-        <div class="time-row"><span>Salt Lake City</span><span id="tMT">-</span></div>
-        <div class="time-row"><span>New York</span><span id="tNY">-</span></div>
-        <div class="time-row"><span>Seoul</span><span id="tKR">-</span></div>
-      </div>
-
-      <div id="error" class="err"></div>
-    </div>
-
-    <div id="rightPane" class="right-pane">
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">BTCUSD Mini Chart</div>
-          <div class="tf" aria-label="Timeframes">
-            <button class="tf-btn" data-interval="5">5m</button>
-            <button class="tf-btn" data-interval="30">30m</button>
-            <button class="tf-btn" data-interval="60">1h</button>
-            <button class="tf-btn" data-interval="240">4h</button>
-          </div>
-        </div>
-
-        <div id="tvChart"></div>
-
-        <button id="toggleChartBtn" class="chart-toggle">Hide chart</button>
-      </div>
-    </div>
+  <div class="row">
+    <div id="status" class="pill">● Connecting…</div>
+    <div id="updated" class="pill">Last updated: -</div>
+    <button id="refresh">Refresh</button>
   </div>
+
+  <div id="primaryDisplay" class="primary">-</div>
+  <div id="secondaryDisplay" class="secondary">-</div>
+
+  <div class="times">
+    <div class="time-row"><span>Salt Lake City (MT)</span><span id="tMT">-</span></div>
+    <div class="time-row"><span>US Eastern</span><span id="tET">-</span></div>
+    <div class="time-row"><span>US Pacific</span><span id="tPT">-</span></div>
+    <div class="time-row"><span>Korea (Seoul)</span><span id="tKR">-</span></div>
+  </div>
+
+  <div id="error" class="err"></div>
 </div>
-
-<script src="https://s3.tradingview.com/tv.js"></script>
 
 <script>
 /* ---------- CONFIG ---------- */
 const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
 const WX_URL="https://api.open-meteo.com/v1/forecast?latitude=40.7608&longitude=-111.8910&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America/Denver";
 
-const WARN_AFTER_MS = 45_000;
-const STALE_AFTER_MS = 60_000;
-
-const TF_KEY = "btcChartTF";
-const CHART_HIDDEN_KEY = "btcChartHidden";
-
-const WX_CACHE_KEY = "wxDailyItemsHtml_v1";
-const WX_CACHE_TS_KEY = "wxDailyItemsTs_v1";
-const WX_REFRESH_MS = 6 * 60 * 60 * 1000; // 6 hours
-
-const FILLER_KO = "오늘도 행복하자";
-const FILLER_EN = "Let’s be happy today.";
-
-/* ---------- STATE ---------- */
-let isPricePrimary = true;     // true => primary shows PRICE, false => primary shows TIME (MT)
-let latestPrice = "-";
-let lastGoodPriceUpdate = 0;
-
-let currentInterval = localStorage.getItem(TF_KEY) || "60";
-let chartHidden = (localStorage.getItem(CHART_HIDDEN_KEY) === "1");
+let isPricePrimary=true;
+let latestPrice="-";
 
 /* ---------- HELPERS ---------- */
-const fmtTime = (tz) => new Intl.DateTimeFormat("en-US", {
-  timeZone: tz,
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: true
-}).format(new Date());
-
-const fmtDateTimeNoLabel = (tz) => new Intl.DateTimeFormat("en-US", {
-  timeZone: tz,
-  weekday: "short",
-  month: "2-digit",
-  day: "2-digit",
-  hour: "2-digit",
-  minute: "2-digit",
-  second: "2-digit",
-  hour12: true
-}).format(new Date());
-
-function fmtAgo(ms){
-  const s = Math.max(0, Math.floor(ms/1000));
-  const m = Math.floor(s/60);
-  const r = s % 60;
-  return `${m}m ${String(r).padStart(2,"0")}s ago`;
-}
-
-/* Typography rules for swap modes */
-function applySwapTypography(){
-  if(isPricePrimary){
-    primaryDisplay.style.fontSize = "44px";
-    secondaryDisplay.classList.remove("big");
-    secondaryDisplay.style.display = "none"; // no MT time under price
-  } else {
-    primaryDisplay.style.fontSize = "36px";  // fit one line
-    secondaryDisplay.classList.add("big");
-    secondaryDisplay.style.display = "block";
-  }
-}
+const fmtTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
+const fmtDateTime=(tz)=>new Intl.DateTimeFormat("en-US",{timeZone:tz,weekday:"short",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
 
 function renderDisplays(){
   if(isPricePrimary){
-    primaryDisplay.textContent = latestPrice;
-    secondaryDisplay.textContent = "";
-  } else {
-    primaryDisplay.textContent = fmtTime("America/Denver");
-    secondaryDisplay.textContent = "BTC: " + latestPrice;
+    primaryDisplay.textContent=latestPrice;
+    secondaryDisplay.textContent="Time (MT): "+fmtTime("America/Denver");
+  }else{
+    primaryDisplay.textContent=fmtTime("America/Denver");
+    secondaryDisplay.textContent="BTC: "+latestPrice;
   }
 }
 
-/* ---------- PIXEL RUNNER (SVG) ---------- */
-function runnerSvg(){
-  // 8-color “Minecraft-ish” pixel runner with sword swing.
-  // Note: This is an original pixel design inspired by blocky aesthetics (not copying a specific character).
-  return `
-    <svg class="pixel-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-      <!-- body (static) -->
-      <!-- outline/back shadow blocks -->
-      <rect x="6" y="2" width="8" height="1" fill="var(--p1)"/>
-      <rect x="5" y="3" width="10" height="1" fill="var(--p1)"/>
-      <rect x="5" y="4" width="1" height="5" fill="var(--p1)"/>
-      <rect x="14" y="4" width="1" height="6" fill="var(--p1)"/>
-      <rect x="6" y="9" width="8" height="1" fill="var(--p1)"/>
-      <rect x="6" y="3" width="8" height="1" fill="var(--p6)"/>
-      <rect x="6" y="4" width="8" height="2" fill="var(--p6)"/>
-      <rect x="6" y="6" width="8" height="3" fill="var(--p2)"/>
-      <rect x="7" y="7" width="2" height="1" fill="var(--p8)"/>
-      <rect x="11" y="7" width="2" height="1" fill="var(--p8)"/>
-      <rect x="9" y="8" width="2" height="1" fill="var(--p7)"/>
-
-      <!-- torso -->
-      <rect x="6" y="10" width="8" height="4" fill="var(--p3)"/>
-      <rect x="6" y="10" width="8" height="1" fill="var(--p1)"/>
-      <rect x="6" y="13" width="8" height="1" fill="var(--p1)"/>
-      <rect x="6" y="11" width="1" height="2" fill="var(--p1)"/>
-      <rect x="13" y="11" width="1" height="2" fill="var(--p1)"/>
-      <rect x="7" y="11" width="2" height="1" fill="var(--p7)"/>
-
-      <!-- back arm (simple) -->
-      <rect x="4" y="11" width="2" height="3" fill="var(--p3)"/>
-      <rect x="4" y="11" width="2" height="1" fill="var(--p1)"/>
-      <rect x="4" y="13" width="2" height="1" fill="var(--p1)"/>
-      <rect x="4" y="12" width="1" height="1" fill="var(--p1)"/>
-
-      <!-- sword arm group (animated) -->
-      <g class="armSword">
-        <rect x="14" y="11" width="2" height="3" fill="var(--p3)"/>
-        <rect x="14" y="11" width="2" height="1" fill="var(--p1)"/>
-        <rect x="14" y="13" width="2" height="1" fill="var(--p1)"/>
-        <!-- hand -->
-        <rect x="16" y="12" width="1" height="1" fill="var(--p2)"/>
-        <!-- sword -->
-        <rect x="17" y="10" width="1" height="5" fill="var(--p5)"/>
-        <rect x="17" y="9" width="1" height="1" fill="var(--p7)"/>
-        <rect x="16" y="11" width="1" height="1" fill="var(--p5)"/>
-      </g>
-
-      <!-- legs (animated groups) -->
-      <g class="legA">
-        <rect x="7" y="14" width="3" height="1" fill="var(--p1)"/>
-        <rect x="7" y="15" width="3" height="3" fill="var(--p4)"/>
-        <rect x="7" y="17" width="3" height="1" fill="var(--p1)"/>
-        <rect x="7" y="18" width="3" height="1" fill="var(--p8)"/>
-      </g>
-
-      <g class="legB">
-        <rect x="10" y="14" width="3" height="1" fill="var(--p1)"/>
-        <rect x="10" y="15" width="3" height="3" fill="var(--p4)"/>
-        <rect x="10" y="17" width="3" height="1" fill="var(--p1)"/>
-        <rect x="10" y="18" width="3" height="1" fill="var(--p8)"/>
-      </g>
-    </svg>
-  `;
-}
-
-/* ---------- MARQUEE BUILDERS ---------- */
-function fillerItemsHtml(){
-  // Build enough content so even before weather is ready, there’s no "blank time".
-  // Repeat runner + message a few times in one segment.
-  const runnerBlock = `
-    <span class="weather-item runner">
-      ${runnerSvg()}
-      <span class="label">${FILLER_KO} / ${FILLER_EN}</span>
-    </span>
-  `;
-  return runnerBlock + runnerBlock + runnerBlock + runnerBlock;
-}
-
-function setMarqueeSegmentHtml(segmentHtml){
-  // Two identical segments => seamless loop (no gaps / no jump).
-  segA.innerHTML = segmentHtml;
-  segB.innerHTML = segmentHtml;
-}
-
-function dayShort3(dateStr){
-  const d = new Date(dateStr + "T00:00:00");
-  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
-}
-function mdDate(dateStr){
-  return dateStr.slice(5).replace("-", "/"); // MM/DD
-}
-
-const wxIcon = (c) => {
-  c = Number(c);
-  if(c === 0) return "☀️";
-  if(c <= 3) return "☁️";
-  if(c <= 67) return "🌧️";
-  if(c <= 86) return "❄️";
-  if(c >= 95) return "⛈️";
+/* ---------- WEATHER ---------- */
+const wxIcon=c=>{
+  c=Number(c);
+  if(c===0) return "☀️";
+  if(c<=3) return "☁️";
+  if(c<=67) return "🌧️";
+  if(c<=86) return "❄️";
+  if(c>=95) return "⛈️";
   return "🌤️";
 };
 
-function buildWeatherItemsHtml(daily){
-  const days = daily.time.slice(0,7);
-  const items = days.map((day,i)=>`
+async function fetchWeather(){
+  const r=await fetch(WX_URL);
+  const d=await r.json();
+  const days=d.daily.time.slice(0,7);
+  weatherTrack.innerHTML=days.map((_,i)=>`
     <span class="weather-item">
-      ${dayShort3(day)} (${mdDate(day)})
-      ${wxIcon(daily.weather_code[i])}
-      ${Math.round(daily.temperature_2m_max[i])}/${Math.round(daily.temperature_2m_min[i])}°
+      ${wxIcon(d.daily.weather_code[i])}
+      ${Math.round(d.daily.temperature_2m_max[i])}/${Math.round(d.daily.temperature_2m_min[i])}°
     </span>
-  `).join("");
-
-  // Include runner + message blocks to keep the segment long and lively even after weather is loaded.
-  const runnerBlock = `
-    <span class="weather-item runner">
-      ${runnerSvg()}
-      <span class="label">${FILLER_KO} / ${FILLER_EN}</span>
-    </span>
-  `;
-
-  // Mix: runner, weather(7), runner, weather(7) => long segment => no blanks.
-  return runnerBlock + items + runnerBlock + items;
-}
-
-/* ---------- WEATHER (6-hour cache) ---------- */
-function readWxCache(){
-  const ts = Number(localStorage.getItem(WX_CACHE_TS_KEY) || "0");
-  const html = localStorage.getItem(WX_CACHE_KEY) || "";
-  return { ts, html };
-}
-function writeWxCache(html){
-  localStorage.setItem(WX_CACHE_KEY, html);
-  localStorage.setItem(WX_CACHE_TS_KEY, String(Date.now()));
-}
-
-async function ensureWeather(){
-  // Always show filler immediately (no blanks).
-  setMarqueeSegmentHtml(fillerItemsHtml());
-
-  const { ts, html } = readWxCache();
-  const age = Date.now() - ts;
-
-  // Use cached if valid
-  if (html && ts && age < WX_REFRESH_MS){
-    setMarqueeSegmentHtml(html);
-    return;
-  }
-
-  // Otherwise fetch and cache
-  try{
-    const r = await fetch(WX_URL, { cache: "no-store" });
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-
-    const built = buildWeatherItemsHtml(data.daily);
-    writeWxCache(built);
-
-    // Swap to weather content (still seamless because both segments replaced identically)
-    setMarqueeSegmentHtml(built);
-  }catch(e){
-    // Keep filler if fetch fails
-    setMarqueeSegmentHtml(fillerItemsHtml());
-  }
+  `).join("") + weatherTrack.innerHTML;
 }
 
 /* ---------- PRICE ---------- */
 async function fetchPrice(){
-  try{
-    const r = await fetch(PRICE_URL, { cache: "no-store" });
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j = await r.json();
-
-    latestPrice = new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0
-    }).format(j?.data?.amount);
-
-    lastGoodPriceUpdate = Date.now();
-    updated.textContent = "Updated: " + fmtTime("America/Denver") + " (MT)";
-    error.textContent = "";
-
-    renderDisplays();
-    updateStaleUI();
-  }catch(e){
-    error.textContent = "Error: " + (e?.message || String(e));
-  }
-}
-
-/* ---------- TIMEZONES ---------- */
-function updateTime(){
-  todayMT.textContent = fmtDateTimeNoLabel("America/Denver");
-  tMT.textContent = fmtTime("America/Denver");
-  tNY.textContent = fmtTime("America/New_York");
-  tKR.textContent = fmtTime("Asia/Seoul");
-
+  const r=await fetch(PRICE_URL,{cache:"no-store"});
+  const j=await r.json();
+  latestPrice=new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(j.data.amount);
+  updated.textContent="Updated: "+fmtTime("America/Denver")+" (MT)";
+  status.textContent="● LIVE";
   renderDisplays();
 }
 
-/* ---------- STALE UI ---------- */
-function updateStaleUI(){
-  const now = Date.now();
-  const base = lastGoodPriceUpdate || now;
-  const elapsed = now - base;
-
-  if(elapsed >= WARN_AFTER_MS){
-    staleAge.style.display = "inline";
-    staleAge.textContent = "Last update: " + fmtAgo(elapsed);
-  } else {
-    staleAge.style.display = "none";
-  }
-
-  if(elapsed >= STALE_AFTER_MS){
-    primaryDisplay.classList.add("is-stale");
-  } else {
-    primaryDisplay.classList.remove("is-stale");
-  }
+/* ---------- TIME ---------- */
+function updateTime(){
+  todayMT.textContent="Today (MT): "+fmtDateTime("America/Denver");
+  tMT.textContent=fmtTime("America/Denver");
+  tET.textContent=fmtTime("America/New_York");
+  tPT.textContent=fmtTime("America/Los_Angeles");
+  tKR.textContent=fmtTime("Asia/Seoul");
+  renderDisplays();
 }
-
-/* ---------- CHART (TradingView embed) ---------- */
-function setActiveTf(interval){
-  document.querySelectorAll(".tf-btn").forEach(btn=>{
-    btn.classList.toggle("active", btn.dataset.interval === String(interval));
-  });
-}
-
-function buildTVChart(interval){
-  currentInterval = String(interval);
-  localStorage.setItem(TF_KEY, currentInterval);
-  setActiveTf(currentInterval);
-
-  if(chartHidden) return;
-
-  const el = document.getElementById("tvChart");
-  el.innerHTML = "";
-
-  const innerId = "tv_inner_" + Date.now();
-  const inner = document.createElement("div");
-  inner.id = innerId;
-  inner.style.height = "170px";
-  el.appendChild(inner);
-
-  new TradingView.widget({
-    autosize: true,
-    symbol: "COINBASE:BTCUSD",
-    interval: currentInterval,
-    timezone: "America/Denver",
-    theme: "dark",
-    style: "1",
-    locale: "en",
-    enable_publishing: false,
-    hide_legend: true,
-    hide_side_toolbar: true,
-    allow_symbol_change: false,
-    container_id: innerId,
-    save_image: false,
-    studies: [],
-    withdateranges: false,
-    details: false,
-    calendar: false
-  });
-}
-
-function setChartHidden(next){
-  chartHidden = next;
-  localStorage.setItem(CHART_HIDDEN_KEY, chartHidden ? "1" : "0");
-
-  rightPane.classList.toggle("is-hidden", chartHidden);
-  toggleChartBtn.textContent = chartHidden ? "Show chart" : "Hide chart";
-
-  if(!chartHidden){
-    if (window.TradingView && TradingView.widget) buildTVChart(currentInterval);
-  } else {
-    tvChart.innerHTML = "";
-  }
-}
-
-document.querySelectorAll(".tf-btn").forEach(btn=>{
-  btn.addEventListener("click", () => buildTVChart(btn.dataset.interval));
-});
-
-toggleChartBtn.addEventListener("click", ()=>{
-  setChartHidden(!chartHidden);
-});
 
 /* ---------- EVENTS ---------- */
-swapBtn.addEventListener("click", ()=>{
-  isPricePrimary = !isPricePrimary;
-  applySwapTypography();
+swapBtn.addEventListener("click",()=>{
+  isPricePrimary=!isPricePrimary;
   renderDisplays();
-  updateStaleUI();
 });
 
-refreshBtn.addEventListener("click", ()=>{
+refresh.addEventListener("click",()=>{
   fetchPrice();
-  ensureWeather(); // respects 6-hour cache (but refresh button forces check)
+  fetchWeather();
 });
 
 /* ---------- START ---------- */
 function start(){
-  // ensure marquee has something immediately (no blank time)
-  setMarqueeSegmentHtml(fillerItemsHtml());
-
-  applySwapTypography();
-  renderDisplays();
-
   updateTime();
   fetchPrice();
-  ensureWeather();
-
-  setChartHidden(chartHidden);
-  setActiveTf(currentInterval);
-
-  const bootChart = () => {
-    if(!chartHidden) buildTVChart(currentInterval);
-  };
-
-  if (window.TradingView && TradingView.widget) {
-    bootChart();
-  } else {
-    const t = setInterval(() => {
-      if (window.TradingView && TradingView.widget) {
-        clearInterval(t);
-        bootChart();
-      }
-    }, 150);
-  }
-
-  setInterval(updateTime, 1000);
-  setInterval(fetchPrice, 5000);
-  setInterval(updateStaleUI, 1000);
-
-  // Weather refresh every 6 hours (separate from other timers)
-  setInterval(ensureWeather, WX_REFRESH_MS);
+  fetchWeather();
+  setInterval(updateTime,1000);
+  setInterval(fetchPrice,5000);
+  setInterval(fetchWeather,10*60*1000);
 }
 
 start();
