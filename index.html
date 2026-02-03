@@ -774,7 +774,7 @@ async function fetchPrice(){
     }).format(j?.data?.amount);
 
     lastGoodPriceUpdate = Date.now();
-    updated.textContent = "Updated: " + fmtTime("America/Denver") + " (MT)";
+    updated.textContent = "Updated: " + fmtTime("America/Denver");
     error.textContent = "";
 
     renderDisplays();
