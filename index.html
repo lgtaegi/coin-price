@@ -1,10 +1,14 @@
 <!--
-Version: 1.19
-Date: 2026-02-01
+Version: 1.20
+Date: 2026-02-04
 Updated:
-- Added large header animation area (uses empty space right of title) without changing overall layout
-- Header animation: half-buried Bitcoin coin + pixel miner swinging pickaxe + large threatening snake (SVG + CSS)
-- Kept all existing features: seamless marquee + pixel chase line, 6-hour weather cache/refresh, swap, stale, refresh icon, timezones, chart TF + hide/show persistence, cents removed
+- Added Price Alerts module (visual + browser notification) with persistence (localStorage)
+- Alert types:
+  1) Crossing alerts (above/below/both) for a target price
+  2) Change-from-base alerts using $ and/or % (up/down), where Base can be set to “current price” via Arm button
+- Added on-screen toast + price blink when alert triggers; notifications fire when permission is granted
+- Kept all existing features unchanged: seamless marquee + pixel chase line, 6-hour weather cache/refresh, swap, stale, refresh icon, timezones, chart TF + hide/show persistence, cents removed, header animation
+- Removed “(MT)” suffix from Updated time display
 Author: lgtaegi
 -->
 
@@ -27,6 +31,9 @@ Author: lgtaegi
   --stale:#7a8a4a;
   --error:#ff6b6b;
   --bright:#f3f3f3;
+
+  --alert:#ffd166;
+  --alert2:#ffb703;
 
   /* runner palette */
   --p1:#1a1a1a; --p2:#f2c9a0; --p3:#2f6fb3; --p4:#1f4f2a;
@@ -65,6 +72,7 @@ body{
   background:var(--card);
   border:1px solid var(--border);
   border-radius:14px;
+  position:relative;
 }
 
 /* ---------- HEADER LAYOUT (title + swap left, animation right) ---------- */
@@ -179,6 +187,16 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 }
 @keyframes stalePulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
 .primary.is-stale{ color:var(--stale); animation:stalePulse 1.4s ease-in-out infinite; }
+
+/* alert pulse (separate from stale) */
+@keyframes alertPulse{
+  0%,100%{ filter:none; transform:translateZ(0); }
+  50%{ filter:drop-shadow(0 0 10px rgba(255,209,102,0.20)); }
+}
+.primary.is-alert{
+  color:var(--alert);
+  animation:alertPulse 0.9s ease-in-out infinite;
+}
 
 .secondary{ font-size:13px; color:var(--muted2); }
 .secondary.big{ font-size:19.5px; color:var(--muted); }
@@ -362,11 +380,139 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 .chart-toggle:hover{ background:rgba(255,255,255,0.06); }
 .right-pane.is-hidden #tvChart,
 .right-pane.is-hidden .tf{ display:none; }
+
+/* ---------- ALERT UI ---------- */
+.alert-panel{
+  margin-top:12px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:10px;
+  background:rgba(255,255,255,0.02);
+}
+.alert-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:10px;
+  margin-bottom:8px;
+}
+.alert-title{
+  font-size:12px;
+  color:var(--muted2);
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.alert-title .dot{
+  width:8px;height:8px;border-radius:50%;
+  background:rgba(255,209,102,0.45);
+  box-shadow:0 0 0 2px rgba(255,209,102,0.12);
+}
+.alert-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+.a-btn{
+  padding:6px 10px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--muted);
+  cursor:pointer;
+  font-size:12px;
+}
+.a-btn:hover{ background:rgba(255,255,255,0.06); }
+.a-btn:active{ transform:translateY(1px); }
+
+.a-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  align-items:center;
+  margin-top:8px;
+}
+.a-row label{
+  display:inline-flex;
+  gap:6px;
+  align-items:center;
+  font-size:12px;
+  color:var(--muted);
+}
+.a-row input[type="number"]{
+  width:110px;
+  padding:6px 8px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(0,0,0,0.15);
+  color:var(--text);
+  font-size:12px;
+}
+.a-row select{
+  padding:6px 8px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(0,0,0,0.15);
+  color:var(--text);
+  font-size:12px;
+}
+.a-muted{
+  font-size:11px;
+  color:var(--muted2);
+  margin-top:6px;
+  line-height:1.35;
+}
+.base-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:6px 10px;
+  border-radius:999px;
+  border:1px solid var(--border);
+  font-size:12px;
+  color:var(--muted);
+  background:rgba(255,255,255,0.02);
+}
+.base-pill strong{ color:var(--text); font-weight:700; }
+
+/* toast */
+.toast{
+  position:absolute;
+  left:14px;
+  right:14px;
+  top:14px;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid rgba(255,209,102,0.35);
+  background:rgba(20,20,20,0.92);
+  color:var(--bright);
+  font-size:13px;
+  display:none;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  z-index:10;
+}
+.toast.show{ display:flex; }
+.toast .msg{ display:block; }
+.toast .x{
+  width:28px;height:28px;border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--muted);
+  cursor:pointer;
+}
+.toast .x:hover{ background:rgba(255,255,255,0.06); }
 </style>
 </head>
 
 <body>
 <div class="card">
+
+  <div id="toast" class="toast" role="status" aria-live="polite">
+    <span id="toastMsg" class="msg">-</span>
+    <button id="toastClose" class="x" title="Close">✕</button>
+  </div>
 
   <div class="header">
     <div class="header-left">
@@ -374,23 +520,18 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
       <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
     </div>
 
-    <!-- NEW: Large header animation using the empty space -->
     <div class="header-anim" aria-hidden="true">
       <svg viewBox="0 0 320 34" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-        <!-- ground -->
         <rect x="0" y="24" width="320" height="10" fill="var(--hx4)"/>
         <rect x="0" y="28" width="320" height="6" fill="var(--hx5)"/>
 
-        <!-- half-buried coin group -->
         <g class="h-coin">
-          <!-- coin behind ground (top part visible) -->
           <g>
             <rect x="44" y="6" width="48" height="24" rx="2" ry="2" fill="var(--hx2)"/>
             <rect x="44" y="6" width="48" height="3" fill="var(--hx3)"/>
             <rect x="44" y="27" width="48" height="3" fill="var(--hx3)"/>
             <rect x="44" y="6" width="3" height="24" fill="var(--hx3)"/>
             <rect x="89" y="6" width="3" height="24" fill="var(--hx3)"/>
-            <!-- simple ₿ mark -->
             <rect x="64" y="10" width="2" height="14" fill="var(--hx1)"/>
             <rect x="68" y="10" width="2" height="14" fill="var(--hx1)"/>
             <rect x="58" y="11" width="18" height="2" fill="var(--hx1)"/>
@@ -399,12 +540,10 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
             <rect x="58" y="13" width="2" height="8" fill="var(--hx1)"/>
             <rect x="74" y="13" width="2" height="8" fill="var(--hx1)"/>
           </g>
-          <!-- cover lower half with ground to appear buried -->
           <rect x="44" y="24" width="48" height="10" fill="var(--hx4)"/>
           <rect x="44" y="28" width="48" height="6" fill="var(--hx5)"/>
         </g>
 
-        <!-- sparkle near impact -->
         <g class="h-spark">
           <rect x="98" y="8" width="2" height="2" fill="var(--hx12)"/>
           <rect x="96" y="10" width="2" height="2" fill="var(--hx12)"/>
@@ -412,36 +551,26 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
           <rect x="98" y="12" width="2" height="2" fill="var(--hx12)"/>
         </g>
 
-        <!-- miner group -->
         <g class="h-miner">
-          <!-- body -->
           <rect x="120" y="10" width="14" height="10" fill="var(--hx6)"/>
           <rect x="120" y="20" width="14" height="6" fill="var(--hx7)"/>
-          <!-- head -->
           <rect x="121" y="4" width="12" height="8" fill="var(--hx8)"/>
           <rect x="121" y="4" width="12" height="2" fill="var(--p6)"/>
-          <!-- legs -->
           <rect x="121" y="26" width="5" height="4" fill="var(--hx1)"/>
           <rect x="129" y="26" width="5" height="4" fill="var(--hx1)"/>
-          <!-- back arm -->
           <rect x="116" y="12" width="4" height="8" fill="var(--hx6)"/>
           <rect x="116" y="20" width="4" height="3" fill="var(--hx8)"/>
 
-          <!-- pickaxe arm (animated) -->
           <g class="h-pick">
             <rect x="134" y="12" width="4" height="8" fill="var(--hx6)"/>
             <rect x="138" y="18" width="3" height="3" fill="var(--hx8)"/>
-            <!-- handle -->
             <rect x="141" y="10" width="3" height="14" fill="var(--hx9)"/>
-            <!-- head -->
             <rect x="137" y="9" width="12" height="3" fill="var(--hx1)"/>
             <rect x="138" y="10" width="10" height="1" fill="var(--hx9)"/>
           </g>
         </g>
 
-        <!-- big snake behind miner -->
         <g class="h-snake" opacity="0.95">
-          <!-- body segments -->
           <rect x="176" y="18" width="18" height="4" fill="var(--hx11)"/>
           <rect x="192" y="16" width="18" height="4" fill="var(--hx11)"/>
           <rect x="208" y="18" width="18" height="4" fill="var(--hx11)"/>
@@ -456,7 +585,6 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
           <rect x="241" y="19" width="16" height="2" fill="var(--hx10)"/>
           <rect x="257" y="17" width="16" height="2" fill="var(--hx10)"/>
 
-          <!-- head -->
           <g class="h-snake-head">
             <rect x="276" y="12" width="18" height="10" fill="var(--hx11)"/>
             <rect x="277" y="13" width="16" height="8" fill="var(--hx10)"/>
@@ -494,6 +622,69 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 
       <div id="primaryDisplay" class="primary">-</div>
       <div id="secondaryDisplay" class="secondary">-</div>
+
+      <!-- Alerts (NEW in v1.20) -->
+      <div class="alert-panel" id="alertPanel">
+        <div class="alert-head">
+          <div class="alert-title"><span class="dot"></span> Price Alerts</div>
+          <div class="alert-actions">
+            <button id="notifBtn" class="a-btn" title="Enable browser notifications">Enable</button>
+            <button id="armBtn" class="a-btn" title="Set Base = current price">Arm</button>
+            <button id="disarmBtn" class="a-btn" title="Disable alerts">Off</button>
+          </div>
+        </div>
+
+        <div class="a-row">
+          <label><input id="alertsEnabled" type="checkbox"> Alerts On</label>
+          <label>
+            Cooldown (min)
+            <input id="cooldownMin" type="number" min="0" step="1" value="5">
+          </label>
+          <span class="base-pill">Base: <strong id="basePriceLabel">-</strong></span>
+        </div>
+
+        <div class="a-row" style="margin-top:10px;">
+          <label><input id="crossEnabled" type="checkbox"> Crossing</label>
+          <label>
+            Target $
+            <input id="crossTarget" type="number" min="0" step="1" placeholder="100000">
+          </label>
+          <label>
+            Mode
+            <select id="crossMode">
+              <option value="above">Above</option>
+              <option value="below">Below</option>
+              <option value="both">Both</option>
+            </select>
+          </label>
+          <label><input id="crossOneShot" type="checkbox" checked> One-shot</label>
+        </div>
+
+        <div class="a-row">
+          <label><input id="deltaEnabled" type="checkbox"> Change from Base</label>
+          <label>
+            +$ 
+            <input id="upUsd" type="number" min="0" step="1" placeholder="500">
+          </label>
+          <label>
+            -$ 
+            <input id="downUsd" type="number" min="0" step="1" placeholder="500">
+          </label>
+          <label>
+            +%
+            <input id="upPct" type="number" min="0" step="0.1" placeholder="1.0">
+          </label>
+          <label>
+            -%
+            <input id="downPct" type="number" min="0" step="0.1" placeholder="1.0">
+          </label>
+        </div>
+
+        <div class="a-muted">
+          Tip: Tap <b>Arm</b> to set <b>Base = current price</b>. Alerts use that base for +$ / -$ / +% / -% triggers.<br/>
+          Notifications will show only if permission is granted (Enable button).
+        </div>
+      </div>
 
       <div class="times">
         <div class="time-row"><span>Salt Lake City</span><span id="tMT">-</span></div>
@@ -543,13 +734,47 @@ const WX_REFRESH_MS = 6 * 60 * 60 * 1000; // 6 hours
 const FILLER_KO = "오늘도 행복하자";
 const FILLER_EN = "Let’s be happy today.";
 
+/* Alerts */
+const ALARM_KEY = "btcAlerts_v120";
+
 /* ---------- STATE ---------- */
 let isPricePrimary = true;
 let latestPrice = "-";
+let latestAmountNum = NaN;
 let lastGoodPriceUpdate = 0;
 
 let currentInterval = localStorage.getItem(TF_KEY) || "60";
 let chartHidden = (localStorage.getItem(CHART_HIDDEN_KEY) === "1");
+
+/* Alerts state */
+let prevAmountNum = NaN;
+let alertPulseUntil = 0;
+
+let alerts = {
+  enabled: false,
+  cooldownMin: 5,
+
+  basePrice: null,              // number
+  // crossing
+  crossEnabled: false,
+  crossTarget: null,            // number
+  crossMode: "above",           // above | below | both
+  crossOneShot: true,
+  crossFiredAbove: false,
+  crossFiredBelow: false,
+
+  // delta from base
+  deltaEnabled: false,
+  upUsd: null, downUsd: null,   // numbers
+  upPct: null, downPct: null,   // numbers
+  firedUpUsd: false,
+  firedDownUsd: false,
+  firedUpPct: false,
+  firedDownPct: false,
+
+  lastAlertTs: 0,
+  notifPermission: "default"    // default | granted | denied
+};
 
 /* ---------- HELPERS ---------- */
 const fmtTime = (tz) => new Intl.DateTimeFormat("en-US", {
@@ -557,7 +782,7 @@ const fmtTime = (tz) => new Intl.DateTimeFormat("en-US", {
 }).format(new Date());
 
 const fmtDateTimeNoLabel = (tz) => new Intl.DateTimeFormat("en-US", {
-  timeZone: tz, weekday:"short", month:"2-digit", day:"2-digit",
+  timeZone: tz, weekday:"short", month:"2-digit", day:"2-digit", year:"numeric",
   hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:true
 }).format(new Date());
 
@@ -566,6 +791,11 @@ function fmtAgo(ms){
   const m = Math.floor(s/60);
   const r = s % 60;
   return `${m}m ${String(r).padStart(2,"0")}s ago`;
+}
+
+function fmtUSD0(n){
+  if(!Number.isFinite(n)) return "-";
+  return new Intl.NumberFormat("en-US", { style:"currency", currency:"USD", maximumFractionDigits:0 }).format(n);
 }
 
 function applySwapTypography(){
@@ -588,6 +818,325 @@ function renderDisplays(){
     primaryDisplay.textContent = fmtTime("America/Denver");
     secondaryDisplay.textContent = "BTC: " + latestPrice;
   }
+}
+
+function setPrimaryAlertPulse(on){
+  if(on){
+    primaryDisplay.classList.add("is-alert");
+  } else {
+    primaryDisplay.classList.remove("is-alert");
+  }
+}
+
+/* ---------- TOAST + NOTIFICATION ---------- */
+let toastTimer = null;
+function showToast(msg){
+  toastMsg.textContent = msg;
+  toast.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toast.classList.remove("show"), 6500);
+}
+toastClose.addEventListener("click", ()=> toast.classList.remove("show"));
+
+function canNotify(){
+  return ("Notification" in window);
+}
+
+function tryNotify(title, body){
+  if(!canNotify()) return;
+  if(Notification.permission !== "granted") return;
+  try{
+    new Notification(title, { body });
+  }catch(_){}
+}
+
+/* ---------- ALERTS: persistence ---------- */
+function loadAlerts(){
+  try{
+    const raw = localStorage.getItem(ALARM_KEY);
+    if(!raw) return;
+    const obj = JSON.parse(raw);
+
+    alerts = {
+      ...alerts,
+      ...obj
+    };
+
+    // clamp types
+    alerts.cooldownMin = Number.isFinite(Number(alerts.cooldownMin)) ? Number(alerts.cooldownMin) : 5;
+    alerts.crossMode = (alerts.crossMode === "below" || alerts.crossMode === "both") ? alerts.crossMode : "above";
+
+    // read permission
+    if(canNotify()){
+      alerts.notifPermission = Notification.permission;
+    }
+  }catch(_){}
+}
+
+function saveAlerts(){
+  try{
+    localStorage.setItem(ALARM_KEY, JSON.stringify(alerts));
+  }catch(_){}
+}
+
+/* ---------- ALERTS: UI sync ---------- */
+function updateBaseLabel(){
+  basePriceLabel.textContent = (alerts.basePrice && Number.isFinite(alerts.basePrice))
+    ? fmtUSD0(alerts.basePrice)
+    : "-";
+}
+
+function syncAlertsUI(){
+  alertsEnabled.checked = !!alerts.enabled;
+  cooldownMin.value = String(alerts.cooldownMin ?? 5);
+
+  crossEnabled.checked = !!alerts.crossEnabled;
+  crossTarget.value = (Number.isFinite(alerts.crossTarget) ? String(Math.round(alerts.crossTarget)) : "");
+  crossMode.value = alerts.crossMode || "above";
+  crossOneShot.checked = !!alerts.crossOneShot;
+
+  deltaEnabled.checked = !!alerts.deltaEnabled;
+  upUsd.value = (Number.isFinite(alerts.upUsd) ? String(Math.round(alerts.upUsd)) : "");
+  downUsd.value = (Number.isFinite(alerts.downUsd) ? String(Math.round(alerts.downUsd)) : "");
+  upPct.value = (Number.isFinite(alerts.upPct) ? String(alerts.upPct) : "");
+  downPct.value = (Number.isFinite(alerts.downPct) ? String(alerts.downPct) : "");
+
+  updateBaseLabel();
+
+  // notif button label
+  if(!canNotify()){
+    notifBtn.textContent = "No Notify";
+    notifBtn.disabled = true;
+  } else {
+    notifBtn.disabled = false;
+    const p = Notification.permission;
+    notifBtn.textContent = (p === "granted") ? "Enabled" : (p === "denied" ? "Blocked" : "Enable");
+  }
+}
+
+function readAlertsFromUI(){
+  alerts.enabled = alertsEnabled.checked;
+  alerts.cooldownMin = Math.max(0, Number(cooldownMin.value || 0));
+
+  alerts.crossEnabled = crossEnabled.checked;
+  alerts.crossTarget = Number(crossTarget.value);
+  if(!Number.isFinite(alerts.crossTarget)) alerts.crossTarget = null;
+  alerts.crossMode = crossMode.value;
+  alerts.crossOneShot = crossOneShot.checked;
+
+  alerts.deltaEnabled = deltaEnabled.checked;
+
+  alerts.upUsd = Number(upUsd.value);
+  if(!Number.isFinite(alerts.upUsd) || alerts.upUsd <= 0) alerts.upUsd = null;
+
+  alerts.downUsd = Number(downUsd.value);
+  if(!Number.isFinite(alerts.downUsd) || alerts.downUsd <= 0) alerts.downUsd = null;
+
+  alerts.upPct = Number(upPct.value);
+  if(!Number.isFinite(alerts.upPct) || alerts.upPct <= 0) alerts.upPct = null;
+
+  alerts.downPct = Number(downPct.value);
+  if(!Number.isFinite(alerts.downPct) || alerts.downPct <= 0) alerts.downPct = null;
+
+  saveAlerts();
+  updateBaseLabel();
+}
+
+/* UI listeners */
+[
+  alertsEnabled, cooldownMin,
+  crossEnabled, crossTarget, crossMode, crossOneShot,
+  deltaEnabled, upUsd, downUsd, upPct, downPct
+].forEach(el => {
+  el.addEventListener("change", readAlertsFromUI);
+  el.addEventListener("input", () => {
+    // keep lightweight, but persist quickly
+    readAlertsFromUI();
+  });
+});
+
+notifBtn.addEventListener("click", async ()=>{
+  if(!canNotify()) return;
+  try{
+    const p = await Notification.requestPermission();
+    alerts.notifPermission = p;
+    saveAlerts();
+    syncAlertsUI();
+    if(p === "granted") showToast("Notifications enabled.");
+    if(p === "denied") showToast("Notifications blocked in browser settings.");
+  }catch(_){}
+});
+
+armBtn.addEventListener("click", ()=>{
+  if(Number.isFinite(latestAmountNum)){
+    alerts.basePrice = latestAmountNum;
+
+    // reset delta fired flags when re-arming base
+    alerts.firedUpUsd = false;
+    alerts.firedDownUsd = false;
+    alerts.firedUpPct = false;
+    alerts.firedDownPct = false;
+
+    // crossing fired flags reset when arm (keeps it intuitive)
+    alerts.crossFiredAbove = false;
+    alerts.crossFiredBelow = false;
+
+    saveAlerts();
+    updateBaseLabel();
+    showToast("Base set to current price: " + fmtUSD0(alerts.basePrice));
+  } else {
+    showToast("Base not set (price not available yet).");
+  }
+});
+
+disarmBtn.addEventListener("click", ()=>{
+  alerts.enabled = false;
+  saveAlerts();
+  syncAlertsUI();
+  showToast("Alerts off.");
+});
+
+/* ---------- ALERTS: trigger logic ---------- */
+function cooldownMs(){
+  return Math.max(0, alerts.cooldownMin || 0) * 60 * 1000;
+}
+
+function canFireNow(){
+  const now = Date.now();
+  return (now - (alerts.lastAlertTs || 0)) >= cooldownMs();
+}
+
+function fireAlert(message){
+  const now = Date.now();
+
+  // visual pulse for a bit
+  alertPulseUntil = now + 12_000; // 12s
+  setPrimaryAlertPulse(true);
+
+  showToast(message);
+  tryNotify("BTC Alert", message);
+
+  alerts.lastAlertTs = now;
+  saveAlerts();
+}
+
+function evalCrossing(curr){
+  if(!alerts.crossEnabled) return;
+  if(!Number.isFinite(curr)) return;
+  const target = alerts.crossTarget;
+  if(!Number.isFinite(target)) return;
+
+  // Need prev for crossing
+  if(!Number.isFinite(prevAmountNum)) return;
+
+  const prev = prevAmountNum;
+  const mode = alerts.crossMode || "above";
+
+  const crossedAbove = (prev < target && curr >= target);
+  const crossedBelow = (prev > target && curr <= target);
+
+  // reset one-shot when price returns across (if one-shot ON, allow re-fire only after opposite crossing)
+  if(alerts.crossOneShot){
+    if(curr < target) alerts.crossFiredAbove = false; // can fire above again after dropping below
+    if(curr > target) alerts.crossFiredBelow = false; // can fire below again after rising above
+  }
+
+  if(mode === "above" || mode === "both"){
+    if(crossedAbove){
+      if(!alerts.crossOneShot || !alerts.crossFiredAbove){
+        if(canFireNow()){
+          alerts.crossFiredAbove = true;
+          fireAlert(`Crossed ABOVE ${fmtUSD0(target)} (Now ${fmtUSD0(curr)})`);
+        }
+      }
+    }
+  }
+
+  if(mode === "below" || mode === "both"){
+    if(crossedBelow){
+      if(!alerts.crossOneShot || !alerts.crossFiredBelow){
+        if(canFireNow()){
+          alerts.crossFiredBelow = true;
+          fireAlert(`Crossed BELOW ${fmtUSD0(target)} (Now ${fmtUSD0(curr)})`);
+        }
+      }
+    }
+  }
+}
+
+function evalDeltaFromBase(curr){
+  if(!alerts.deltaEnabled) return;
+  if(!Number.isFinite(curr)) return;
+  const base = alerts.basePrice;
+  if(!Number.isFinite(base)) return;
+
+  const diff = curr - base;
+  const pct = (diff / base) * 100;
+
+  // $ up
+  if(Number.isFinite(alerts.upUsd) && alerts.upUsd > 0){
+    if(diff >= alerts.upUsd){
+      if(!alerts.firedUpUsd){
+        if(canFireNow()){
+          alerts.firedUpUsd = true;
+          fireAlert(`Up +${fmtUSD0(alerts.upUsd)} from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
+        }
+      }
+    } else {
+      // allow re-fire after returning below threshold
+      alerts.firedUpUsd = false;
+    }
+  }
+
+  // $ down
+  if(Number.isFinite(alerts.downUsd) && alerts.downUsd > 0){
+    if((-diff) >= alerts.downUsd){
+      if(!alerts.firedDownUsd){
+        if(canFireNow()){
+          alerts.firedDownUsd = true;
+          fireAlert(`Down -${fmtUSD0(alerts.downUsd)} from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
+        }
+      }
+    } else {
+      alerts.firedDownUsd = false;
+    }
+  }
+
+  // % up
+  if(Number.isFinite(alerts.upPct) && alerts.upPct > 0){
+    if(pct >= alerts.upPct){
+      if(!alerts.firedUpPct){
+        if(canFireNow()){
+          alerts.firedUpPct = true;
+          fireAlert(`Up +${alerts.upPct}% from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
+        }
+      }
+    } else {
+      alerts.firedUpPct = false;
+    }
+  }
+
+  // % down
+  if(Number.isFinite(alerts.downPct) && alerts.downPct > 0){
+    if((-pct) >= alerts.downPct){
+      if(!alerts.firedDownPct){
+        if(canFireNow()){
+          alerts.firedDownPct = true;
+          fireAlert(`Down -${alerts.downPct}% from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
+        }
+      }
+    } else {
+      alerts.firedDownPct = false;
+    }
+  }
+
+  saveAlerts();
+}
+
+function evalAlerts(){
+  if(!alerts.enabled) return;
+  evalCrossing(latestAmountNum);
+  evalDeltaFromBase(latestAmountNum);
 }
 
 /* ---------- PIXEL CHASE LINE (kept) ---------- */
@@ -769,16 +1318,32 @@ async function fetchPrice(){
     if(!r.ok) throw new Error(`HTTP ${r.status}`);
     const j = await r.json();
 
+    const amt = Number(j?.data?.amount);
+    latestAmountNum = Number.isFinite(amt) ? amt : NaN;
+
     latestPrice = new Intl.NumberFormat("en-US", {
       style:"currency", currency:"USD", maximumFractionDigits:0
-    }).format(j?.data?.amount);
+    }).format(latestAmountNum);
 
     lastGoodPriceUpdate = Date.now();
+
+    // v1.20: removed (MT) text
     updated.textContent = "Updated: " + fmtTime("America/Denver");
+
     error.textContent = "";
 
     renderDisplays();
     updateStaleUI();
+
+    // alerts (evaluate AFTER successful update)
+    if(Number.isFinite(prevAmountNum)){
+      // nothing
+    }
+    evalAlerts();
+
+    // update prev at end
+    prevAmountNum = latestAmountNum;
+
   }catch(e){
     error.textContent = "Error: " + (e?.message || String(e));
   }
@@ -810,6 +1375,12 @@ function updateStaleUI(){
     primaryDisplay.classList.add("is-stale");
   } else {
     primaryDisplay.classList.remove("is-stale");
+  }
+
+  // alert pulse timeout
+  if(alertPulseUntil && now > alertPulseUntil){
+    alertPulseUntil = 0;
+    setPrimaryAlertPulse(false);
   }
 }
 
@@ -895,6 +1466,11 @@ refreshBtn.addEventListener("click", ()=>{
 /* ---------- START ---------- */
 function start(){
   setMarqueeSegmentHtml(fillerItemsHtml());
+
+  // alerts init
+  loadAlerts();
+  syncAlertsUI();
+  updateBaseLabel();
 
   applySwapTypography();
   renderDisplays();
