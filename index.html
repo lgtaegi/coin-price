@@ -1,14 +1,13 @@
 <!--
-Version: 1.20
-Date: 2026-02-04
+Version: 1.22
+Date: 2026-02-05
 Updated:
-- Added Price Alerts module (visual + browser notification) with persistence (localStorage)
-- Alert types:
-  1) Crossing alerts (above/below/both) for a target price
-  2) Change-from-base alerts using $ and/or % (up/down), where Base can be set to “current price” via Arm button
-- Added on-screen toast + price blink when alert triggers; notifications fire when permission is granted
-- Kept all existing features unchanged: seamless marquee + pixel chase line, 6-hour weather cache/refresh, swap, stale, refresh icon, timezones, chart TF + hide/show persistence, cents removed, header animation
-- Removed “(MT)” suffix from Updated time display
+- Added full Price Alerts panel under the chart + toggle (persisted)
+- Alerts: crossing (above/below/both) + delta from base ($ / %) + optional one-shot + cooldown
+- Alerts trigger UX: 60s visual pulse + 60s repeating beep (best effort; iOS may require a user tap first) + toast + browser notification (if allowed)
+- Alerts buttons (Enable / Arm / Off) now have brighter “selected/active” states
+- Kept all existing features: dark theme, cents removed, swap price/time, stale warning + pulse, refresh icon aligned right, timezones (Salt Lake City / New York / Seoul),
+  seamless weather marquee with filler animation + 6-hour cache/refresh, TradingView mini chart with TF buttons + hide/show persistence, header pixel SVG animation
 Author: lgtaegi
 -->
 
@@ -33,7 +32,6 @@ Author: lgtaegi
   --bright:#f3f3f3;
 
   --alert:#ffd166;
-  --alert2:#ffb703;
 
   /* runner palette */
   --p1:#1a1a1a; --p2:#f2c9a0; --p3:#2f6fb3; --p4:#1f4f2a;
@@ -75,7 +73,7 @@ body{
   position:relative;
 }
 
-/* ---------- HEADER LAYOUT (title + swap left, animation right) ---------- */
+/* ---------- HEADER (title + swap left, animation right) ---------- */
 .header{
   display:flex;
   align-items:center;
@@ -83,14 +81,12 @@ body{
   gap:12px;
   margin:0 0 10px;
 }
-
 .header-left{
   display:flex;
   align-items:center;
   gap:10px;
   flex:0 0 auto;
 }
-
 h1{ margin:0; font-size:20px; white-space:nowrap; }
 
 .swap-btn{
@@ -105,7 +101,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 }
 .swap-btn:hover{ background:rgba(255,255,255,0.08); }
 
-/* right animation box: uses the “big empty space” */
+/* right animation box */
 .header-anim{
   flex:1 1 auto;
   min-width:140px;
@@ -113,7 +109,6 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
   justify-content:flex-end;
   align-items:center;
 }
-
 .header-anim svg{
   width:min(320px, 100%);
   height:34px;           /* keep layout compact */
@@ -124,46 +119,18 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
   border:1px solid rgba(255,255,255,0.06);
   background:rgba(255,255,255,0.02);
 }
-
-/* hide animation on very small widths */
 @media (max-width: 420px){
   .header-anim{ display:none; }
 }
 
 /* ---------- HEADER ANIMATION KEYFRAMES ---------- */
-@keyframes minerBounce{
-  0%,100%{ transform:translateY(0); }
-  50%{ transform:translateY(-1px); }
-}
-@keyframes pickSwing{
-  0%{ transform:rotate(-18deg); }
-  45%{ transform:rotate(35deg); }
-  70%{ transform:rotate(5deg); }
-  100%{ transform:rotate(-18deg); }
-}
-@keyframes coinJiggle{
-  0%,100%{ transform:translateX(0); }
-  40%{ transform:translateX(0); }
-  50%{ transform:translateX(1px); }
-  60%{ transform:translateX(0); }
-}
-@keyframes sparkle{
-  0%,70%{ opacity:0; transform:scale(0.7); }
-  80%{ opacity:1; transform:scale(1); }
-  100%{ opacity:0; transform:scale(0.7); }
-}
-@keyframes snakeWave{
-  0%,100%{ transform:translateX(0) translateY(0); }
-  25%{ transform:translateX(-2px) translateY(1px); }
-  50%{ transform:translateX(0) translateY(-1px); }
-  75%{ transform:translateX(2px) translateY(1px); }
-}
-@keyframes snakeHeadThreat{
-  0%,100%{ transform:translateX(0) rotate(0deg); }
-  50%{ transform:translateX(-1px) rotate(-3deg); }
-}
+@keyframes minerBounce{ 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-1px);} }
+@keyframes pickSwing{ 0%{transform:rotate(-18deg);} 45%{transform:rotate(35deg);} 70%{transform:rotate(5deg);} 100%{transform:rotate(-18deg);} }
+@keyframes coinJiggle{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(1px);} }
+@keyframes sparkle{ 0%,70%{opacity:0; transform:scale(0.7);} 80%{opacity:1; transform:scale(1);} 100%{opacity:0; transform:scale(0.7);} }
+@keyframes snakeWave{ 0%,100%{transform:translateX(0) translateY(0);} 25%{transform:translateX(-2px) translateY(1px);} 50%{transform:translateX(0) translateY(-1px);} 75%{transform:translateX(2px) translateY(1px);} }
+@keyframes snakeHeadThreat{ 0%,100%{transform:translateX(0) rotate(0deg);} 50%{transform:translateX(-1px) rotate(-3deg);} }
 
-/* apply to svg internal groups */
 .h-miner{ animation:minerBounce 0.55s steps(2) infinite; transform-origin: 120px 28px; }
 .h-pick{ animation:pickSwing 0.85s steps(3) infinite; transform-origin: 132px 16px; }
 .h-coin{ animation:coinJiggle 0.85s steps(3) infinite; transform-origin: 60px 28px; }
@@ -171,12 +138,11 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 .h-snake{ animation:snakeWave 1.2s steps(4) infinite; transform-origin: 210px 18px; }
 .h-snake-head{ animation:snakeHeadThreat 1.2s steps(4) infinite; transform-origin: 286px 14px; }
 
-/* reduced motion */
 @media (prefers-reduced-motion: reduce){
   .h-miner,.h-pick,.h-coin,.h-spark,.h-snake,.h-snake-head{ animation:none !important; }
 }
 
-/* ---------- MAIN STYLES (unchanged from prior) ---------- */
+/* ---------- MAIN ---------- */
 .primary{
   font-size:44px;
   font-weight:800;
@@ -188,9 +154,9 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 @keyframes stalePulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
 .primary.is-stale{ color:var(--stale); animation:stalePulse 1.4s ease-in-out infinite; }
 
-/* alert pulse (separate from stale) */
+/* alert pulse */
 @keyframes alertPulse{
-  0%,100%{ filter:none; transform:translateZ(0); }
+  0%,100%{ filter:none; }
   50%{ filter:drop-shadow(0 0 10px rgba(255,209,102,0.20)); }
 }
 .primary.is-alert{
@@ -245,7 +211,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 }
 .filler{ color:var(--bright); opacity:0.95; }
 
-/* chase line components (kept) */
+/* chase line components */
 .chase{ display:inline-flex; align-items:center; gap:8px; }
 .chase-stack{ position:relative; width:120px; height:22px; display:inline-block; }
 .snake{
@@ -267,7 +233,6 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
   display:inline-flex; align-items:center; gap:6px;
   z-index:2;
 }
-.runner .label{ font-size:11px; color:var(--bright); opacity:0.95; }
 .pixel-svg{
   width:22px; height:22px;
   image-rendering:pixelated; shape-rendering:crispEdges;
@@ -286,6 +251,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
   .weather-track,.primary.is-stale,.pixel-svg,.pixel-svg .legA,.pixel-svg .legB,.pixel-svg .armSword,.snake,.snake .tongue{ animation:none; }
 }
 
+/* updated row */
 .updated-row{
   display:flex;
   align-items:center;
@@ -381,14 +347,29 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 .right-pane.is-hidden #tvChart,
 .right-pane.is-hidden .tf{ display:none; }
 
-/* ---------- ALERT UI ---------- */
+/* ---------- ALERT UI (under chart) ---------- */
+.alert-toggle{
+  width:100%;
+  margin-top:8px;
+  padding:8px 10px;
+  font-size:12px;
+  border-radius:10px;
+  border:1px solid var(--border);
+  background:rgba(255,255,255,0.03);
+  color:var(--muted);
+  cursor:pointer;
+}
+.alert-toggle:hover{ background:rgba(255,255,255,0.06); }
+
 .alert-panel{
-  margin-top:12px;
+  margin-top:8px;
   border:1px solid var(--border);
   border-radius:12px;
   padding:10px;
   background:rgba(255,255,255,0.02);
 }
+.right-pane.alerts-hidden #alertPanel{ display:none; }
+
 .alert-head{
   display:flex;
   justify-content:space-between;
@@ -424,6 +405,26 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 }
 .a-btn:hover{ background:rgba(255,255,255,0.06); }
 .a-btn:active{ transform:translateY(1px); }
+
+/* brighter “selected” states */
+.a-btn.is-on{
+  background: rgba(255, 209, 102, 0.18);
+  border-color: rgba(255, 209, 102, 0.55);
+  color: var(--bright);
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.10) inset;
+}
+.a-btn.is-off{
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.45);
+  color: var(--bright);
+  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.08) inset;
+}
+.a-btn.is-neutral{
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.16);
+  color: var(--text);
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.06) inset;
+}
 
 .a-row{
   display:flex;
@@ -494,7 +495,6 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
   z-index:10;
 }
 .toast.show{ display:flex; }
-.toast .msg{ display:block; }
 .toast .x{
   width:28px;height:28px;border-radius:10px;
   border:1px solid var(--border);
@@ -510,7 +510,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 <div class="card">
 
   <div id="toast" class="toast" role="status" aria-live="polite">
-    <span id="toastMsg" class="msg">-</span>
+    <span id="toastMsg">-</span>
     <button id="toastClose" class="x" title="Close">✕</button>
   </div>
 
@@ -522,9 +522,11 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 
     <div class="header-anim" aria-hidden="true">
       <svg viewBox="0 0 320 34" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
+        <!-- ground -->
         <rect x="0" y="24" width="320" height="10" fill="var(--hx4)"/>
         <rect x="0" y="28" width="320" height="6" fill="var(--hx5)"/>
 
+        <!-- half-buried coin -->
         <g class="h-coin">
           <g>
             <rect x="44" y="6" width="48" height="24" rx="2" ry="2" fill="var(--hx2)"/>
@@ -532,6 +534,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
             <rect x="44" y="27" width="48" height="3" fill="var(--hx3)"/>
             <rect x="44" y="6" width="3" height="24" fill="var(--hx3)"/>
             <rect x="89" y="6" width="3" height="24" fill="var(--hx3)"/>
+            <!-- ₿ mark -->
             <rect x="64" y="10" width="2" height="14" fill="var(--hx1)"/>
             <rect x="68" y="10" width="2" height="14" fill="var(--hx1)"/>
             <rect x="58" y="11" width="18" height="2" fill="var(--hx1)"/>
@@ -544,6 +547,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
           <rect x="44" y="28" width="48" height="6" fill="var(--hx5)"/>
         </g>
 
+        <!-- sparkle -->
         <g class="h-spark">
           <rect x="98" y="8" width="2" height="2" fill="var(--hx12)"/>
           <rect x="96" y="10" width="2" height="2" fill="var(--hx12)"/>
@@ -551,6 +555,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
           <rect x="98" y="12" width="2" height="2" fill="var(--hx12)"/>
         </g>
 
+        <!-- miner -->
         <g class="h-miner">
           <rect x="120" y="10" width="14" height="10" fill="var(--hx6)"/>
           <rect x="120" y="20" width="14" height="6" fill="var(--hx7)"/>
@@ -570,6 +575,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
           </g>
         </g>
 
+        <!-- big snake -->
         <g class="h-snake" opacity="0.95">
           <rect x="176" y="18" width="18" height="4" fill="var(--hx11)"/>
           <rect x="192" y="16" width="18" height="4" fill="var(--hx11)"/>
@@ -623,69 +629,6 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
       <div id="primaryDisplay" class="primary">-</div>
       <div id="secondaryDisplay" class="secondary">-</div>
 
-      <!-- Alerts (NEW in v1.20) -->
-      <div class="alert-panel" id="alertPanel">
-        <div class="alert-head">
-          <div class="alert-title"><span class="dot"></span> Price Alerts</div>
-          <div class="alert-actions">
-            <button id="notifBtn" class="a-btn" title="Enable browser notifications">Enable</button>
-            <button id="armBtn" class="a-btn" title="Set Base = current price">Arm</button>
-            <button id="disarmBtn" class="a-btn" title="Disable alerts">Off</button>
-          </div>
-        </div>
-
-        <div class="a-row">
-          <label><input id="alertsEnabled" type="checkbox"> Alerts On</label>
-          <label>
-            Cooldown (min)
-            <input id="cooldownMin" type="number" min="0" step="1" value="5">
-          </label>
-          <span class="base-pill">Base: <strong id="basePriceLabel">-</strong></span>
-        </div>
-
-        <div class="a-row" style="margin-top:10px;">
-          <label><input id="crossEnabled" type="checkbox"> Crossing</label>
-          <label>
-            Target $
-            <input id="crossTarget" type="number" min="0" step="1" placeholder="100000">
-          </label>
-          <label>
-            Mode
-            <select id="crossMode">
-              <option value="above">Above</option>
-              <option value="below">Below</option>
-              <option value="both">Both</option>
-            </select>
-          </label>
-          <label><input id="crossOneShot" type="checkbox" checked> One-shot</label>
-        </div>
-
-        <div class="a-row">
-          <label><input id="deltaEnabled" type="checkbox"> Change from Base</label>
-          <label>
-            +$ 
-            <input id="upUsd" type="number" min="0" step="1" placeholder="500">
-          </label>
-          <label>
-            -$ 
-            <input id="downUsd" type="number" min="0" step="1" placeholder="500">
-          </label>
-          <label>
-            +%
-            <input id="upPct" type="number" min="0" step="0.1" placeholder="1.0">
-          </label>
-          <label>
-            -%
-            <input id="downPct" type="number" min="0" step="0.1" placeholder="1.0">
-          </label>
-        </div>
-
-        <div class="a-muted">
-          Tip: Tap <b>Arm</b> to set <b>Base = current price</b>. Alerts use that base for +$ / -$ / +% / -% triggers.<br/>
-          Notifications will show only if permission is granted (Enable button).
-        </div>
-      </div>
-
       <div class="times">
         <div class="time-row"><span>Salt Lake City</span><span id="tMT">-</span></div>
         <div class="time-row"><span>New York</span><span id="tNY">-</span></div>
@@ -709,6 +652,70 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 
         <div id="tvChart"></div>
         <button id="toggleChartBtn" class="chart-toggle">Hide chart</button>
+
+        <button id="toggleAlertsBtn" class="alert-toggle">Show alerts</button>
+
+        <div class="alert-panel" id="alertPanel">
+          <div class="alert-head">
+            <div class="alert-title"><span class="dot"></span> Price Alerts</div>
+            <div class="alert-actions">
+              <button id="notifBtn" class="a-btn" title="Enable browser notifications">Enable</button>
+              <button id="armBtn" class="a-btn" title="Set Base = current price">Arm</button>
+              <button id="disarmBtn" class="a-btn" title="Disable alerts">Off</button>
+            </div>
+          </div>
+
+          <div class="a-row">
+            <label><input id="alertsEnabled" type="checkbox"> Alerts On</label>
+            <label>
+              Cooldown (min)
+              <input id="cooldownMin" type="number" min="0" step="1" value="5">
+            </label>
+            <span class="base-pill">Base: <strong id="basePriceLabel">-</strong></span>
+          </div>
+
+          <div class="a-row" style="margin-top:10px;">
+            <label><input id="crossEnabled" type="checkbox"> Crossing</label>
+            <label>
+              Target $
+              <input id="crossTarget" type="number" min="0" step="1" placeholder="100000">
+            </label>
+            <label>
+              Mode
+              <select id="crossMode">
+                <option value="above">Above</option>
+                <option value="below">Below</option>
+                <option value="both">Both</option>
+              </select>
+            </label>
+            <label><input id="crossOneShot" type="checkbox" checked> One-shot</label>
+          </div>
+
+          <div class="a-row">
+            <label><input id="deltaEnabled" type="checkbox"> Change from Base</label>
+            <label>
+              +$
+              <input id="upUsd" type="number" min="0" step="1" placeholder="500">
+            </label>
+            <label>
+              -$
+              <input id="downUsd" type="number" min="0" step="1" placeholder="500">
+            </label>
+            <label>
+              +%
+              <input id="upPct" type="number" min="0" step="0.1" placeholder="1.0">
+            </label>
+            <label>
+              -%
+              <input id="downPct" type="number" min="0" step="0.1" placeholder="1.0">
+            </label>
+          </div>
+
+          <div class="a-muted">
+            Tip: Tap <b>Arm</b> to set <b>Base = current price</b>. Alerts use that base for +$ / -$ / +% / -% triggers.<br/>
+            Notifications will show only if permission is granted (Enable button). iOS may require one user tap before sound can play.
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -735,45 +742,45 @@ const FILLER_KO = "오늘도 행복하자";
 const FILLER_EN = "Let’s be happy today.";
 
 /* Alerts */
-const ALARM_KEY = "btcAlerts_v120";
+const ALARM_KEY = "btcAlerts_v122";
+const ALERTS_HIDDEN_KEY = "btcAlertsHidden_v122";
 
 /* ---------- STATE ---------- */
 let isPricePrimary = true;
 let latestPrice = "-";
 let latestAmountNum = NaN;
+let prevAmountNum = NaN;
 let lastGoodPriceUpdate = 0;
 
 let currentInterval = localStorage.getItem(TF_KEY) || "60";
 let chartHidden = (localStorage.getItem(CHART_HIDDEN_KEY) === "1");
 
-/* Alerts state */
-let prevAmountNum = NaN;
+let alertsHidden = (localStorage.getItem(ALERTS_HIDDEN_KEY) === "1");
 let alertPulseUntil = 0;
 
 let alerts = {
   enabled: false,
   cooldownMin: 5,
 
-  basePrice: null,              // number
-  // crossing
+  basePrice: null,
+
   crossEnabled: false,
-  crossTarget: null,            // number
-  crossMode: "above",           // above | below | both
+  crossTarget: null,
+  crossMode: "above",
   crossOneShot: true,
   crossFiredAbove: false,
   crossFiredBelow: false,
 
-  // delta from base
   deltaEnabled: false,
-  upUsd: null, downUsd: null,   // numbers
-  upPct: null, downPct: null,   // numbers
+  upUsd: null, downUsd: null,
+  upPct: null, downPct: null,
   firedUpUsd: false,
   firedDownUsd: false,
   firedUpPct: false,
   firedDownPct: false,
 
   lastAlertTs: 0,
-  notifPermission: "default"    // default | granted | denied
+  notifPermission: "default"
 };
 
 /* ---------- HELPERS ---------- */
@@ -821,11 +828,8 @@ function renderDisplays(){
 }
 
 function setPrimaryAlertPulse(on){
-  if(on){
-    primaryDisplay.classList.add("is-alert");
-  } else {
-    primaryDisplay.classList.remove("is-alert");
-  }
+  if(on) primaryDisplay.classList.add("is-alert");
+  else primaryDisplay.classList.remove("is-alert");
 }
 
 /* ---------- TOAST + NOTIFICATION ---------- */
@@ -838,16 +842,72 @@ function showToast(msg){
 }
 toastClose.addEventListener("click", ()=> toast.classList.remove("show"));
 
-function canNotify(){
-  return ("Notification" in window);
-}
+function canNotify(){ return ("Notification" in window); }
 
 function tryNotify(title, body){
   if(!canNotify()) return;
   if(Notification.permission !== "granted") return;
+  try{ new Notification(title, { body }); }catch(_){}
+}
+
+/* ---------- SOUND (best effort) ---------- */
+let beepTimer = null;
+let audioCtx = null;
+let audioPrimed = false;
+
+function primeAudio(){
+  if(audioPrimed) return;
   try{
-    new Notification(title, { body });
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if(audioCtx.state === "suspended") audioCtx.resume().catch(()=>{});
+    audioPrimed = true;
   }catch(_){}
+}
+document.addEventListener("pointerdown", primeAudio, { passive:true });
+
+function beepOnce(){
+  try{
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const ctx = audioCtx;
+    if(ctx.state === "suspended") ctx.resume().catch(()=>{});
+
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+
+    o.type = "square";
+    o.frequency.value = 880;
+    g.gain.value = 0.04;
+
+    o.connect(g);
+    g.connect(ctx.destination);
+
+    o.start();
+    setTimeout(()=>{ o.stop(); }, 140);
+  }catch(_){}
+}
+
+function stopBeep(){
+  if(beepTimer){
+    clearInterval(beepTimer);
+    beepTimer = null;
+  }
+}
+
+function startBeepForOneMinute(){
+  stopBeep();
+  const endAt = Date.now() + 60_000;
+
+  // immediate
+  beepOnce();
+
+  // repeat
+  beepTimer = setInterval(()=>{
+    if(Date.now() >= endAt){
+      stopBeep();
+      return;
+    }
+    beepOnce();
+  }, 1000);
 }
 
 /* ---------- ALERTS: persistence ---------- */
@@ -856,34 +916,41 @@ function loadAlerts(){
     const raw = localStorage.getItem(ALARM_KEY);
     if(!raw) return;
     const obj = JSON.parse(raw);
+    alerts = { ...alerts, ...obj };
 
-    alerts = {
-      ...alerts,
-      ...obj
-    };
-
-    // clamp types
     alerts.cooldownMin = Number.isFinite(Number(alerts.cooldownMin)) ? Number(alerts.cooldownMin) : 5;
     alerts.crossMode = (alerts.crossMode === "below" || alerts.crossMode === "both") ? alerts.crossMode : "above";
 
-    // read permission
-    if(canNotify()){
-      alerts.notifPermission = Notification.permission;
-    }
+    if(canNotify()) alerts.notifPermission = Notification.permission;
   }catch(_){}
 }
-
 function saveAlerts(){
-  try{
-    localStorage.setItem(ALARM_KEY, JSON.stringify(alerts));
-  }catch(_){}
+  try{ localStorage.setItem(ALARM_KEY, JSON.stringify(alerts)); }catch(_){}
 }
 
-/* ---------- ALERTS: UI sync ---------- */
 function updateBaseLabel(){
-  basePriceLabel.textContent = (alerts.basePrice && Number.isFinite(alerts.basePrice))
-    ? fmtUSD0(alerts.basePrice)
-    : "-";
+  basePriceLabel.textContent = (alerts.basePrice && Number.isFinite(alerts.basePrice)) ? fmtUSD0(alerts.basePrice) : "-";
+}
+
+function refreshAlertButtonsUI(){
+  // Enable: Notification permission state
+  notifBtn.classList.remove("is-on","is-off","is-neutral");
+  if(!canNotify()){
+    notifBtn.classList.add("is-off");
+  } else {
+    const p = Notification.permission;
+    if(p === "granted") notifBtn.classList.add("is-on");
+    else if(p === "denied") notifBtn.classList.add("is-off");
+    else notifBtn.classList.add("is-neutral");
+  }
+
+  // Arm: base set
+  armBtn.classList.remove("is-on","is-neutral","is-off");
+  armBtn.classList.add(Number.isFinite(alerts.basePrice) ? "is-on" : "is-neutral");
+
+  // Off: when alerts disabled
+  disarmBtn.classList.remove("is-on","is-neutral","is-off");
+  disarmBtn.classList.add(alerts.enabled ? "is-neutral" : "is-on");
 }
 
 function syncAlertsUI(){
@@ -903,7 +970,6 @@ function syncAlertsUI(){
 
   updateBaseLabel();
 
-  // notif button label
   if(!canNotify()){
     notifBtn.textContent = "No Notify";
     notifBtn.disabled = true;
@@ -912,6 +978,8 @@ function syncAlertsUI(){
     const p = Notification.permission;
     notifBtn.textContent = (p === "granted") ? "Enabled" : (p === "denied" ? "Blocked" : "Enable");
   }
+
+  refreshAlertButtonsUI();
 }
 
 function readAlertsFromUI(){
@@ -940,22 +1008,20 @@ function readAlertsFromUI(){
 
   saveAlerts();
   updateBaseLabel();
+  refreshAlertButtonsUI();
 }
 
-/* UI listeners */
 [
   alertsEnabled, cooldownMin,
   crossEnabled, crossTarget, crossMode, crossOneShot,
   deltaEnabled, upUsd, downUsd, upPct, downPct
 ].forEach(el => {
   el.addEventListener("change", readAlertsFromUI);
-  el.addEventListener("input", () => {
-    // keep lightweight, but persist quickly
-    readAlertsFromUI();
-  });
+  el.addEventListener("input", readAlertsFromUI);
 });
 
 notifBtn.addEventListener("click", async ()=>{
+  primeAudio(); // harmless
   if(!canNotify()) return;
   try{
     const p = await Notification.requestPermission();
@@ -968,21 +1034,21 @@ notifBtn.addEventListener("click", async ()=>{
 });
 
 armBtn.addEventListener("click", ()=>{
+  primeAudio(); // primes audio on iOS
   if(Number.isFinite(latestAmountNum)){
     alerts.basePrice = latestAmountNum;
 
-    // reset delta fired flags when re-arming base
     alerts.firedUpUsd = false;
     alerts.firedDownUsd = false;
     alerts.firedUpPct = false;
     alerts.firedDownPct = false;
 
-    // crossing fired flags reset when arm (keeps it intuitive)
     alerts.crossFiredAbove = false;
     alerts.crossFiredBelow = false;
 
     saveAlerts();
     updateBaseLabel();
+    refreshAlertButtonsUI();
     showToast("Base set to current price: " + fmtUSD0(alerts.basePrice));
   } else {
     showToast("Base not set (price not available yet).");
@@ -996,11 +1062,7 @@ disarmBtn.addEventListener("click", ()=>{
   showToast("Alerts off.");
 });
 
-/* ---------- ALERTS: trigger logic ---------- */
-function cooldownMs(){
-  return Math.max(0, alerts.cooldownMin || 0) * 60 * 1000;
-}
-
+function cooldownMs(){ return Math.max(0, alerts.cooldownMin || 0) * 60 * 1000; }
 function canFireNow(){
   const now = Date.now();
   return (now - (alerts.lastAlertTs || 0)) >= cooldownMs();
@@ -1009,9 +1071,12 @@ function canFireNow(){
 function fireAlert(message){
   const now = Date.now();
 
-  // visual pulse for a bit
-  alertPulseUntil = now + 12_000; // 12s
+  // 60s visual alert
+  alertPulseUntil = now + 60_000;
   setPrimaryAlertPulse(true);
+
+  // 60s beep (best effort)
+  startBeepForOneMinute();
 
   showToast(message);
   tryNotify("BTC Alert", message);
@@ -1025,40 +1090,32 @@ function evalCrossing(curr){
   if(!Number.isFinite(curr)) return;
   const target = alerts.crossTarget;
   if(!Number.isFinite(target)) return;
-
-  // Need prev for crossing
   if(!Number.isFinite(prevAmountNum)) return;
 
   const prev = prevAmountNum;
   const mode = alerts.crossMode || "above";
-
   const crossedAbove = (prev < target && curr >= target);
   const crossedBelow = (prev > target && curr <= target);
 
-  // reset one-shot when price returns across (if one-shot ON, allow re-fire only after opposite crossing)
   if(alerts.crossOneShot){
-    if(curr < target) alerts.crossFiredAbove = false; // can fire above again after dropping below
-    if(curr > target) alerts.crossFiredBelow = false; // can fire below again after rising above
+    if(curr < target) alerts.crossFiredAbove = false;
+    if(curr > target) alerts.crossFiredBelow = false;
   }
 
-  if(mode === "above" || mode === "both"){
-    if(crossedAbove){
-      if(!alerts.crossOneShot || !alerts.crossFiredAbove){
-        if(canFireNow()){
-          alerts.crossFiredAbove = true;
-          fireAlert(`Crossed ABOVE ${fmtUSD0(target)} (Now ${fmtUSD0(curr)})`);
-        }
+  if((mode === "above" || mode === "both") && crossedAbove){
+    if(!alerts.crossOneShot || !alerts.crossFiredAbove){
+      if(canFireNow()){
+        alerts.crossFiredAbove = true;
+        fireAlert(`Crossed ABOVE ${fmtUSD0(target)} (Now ${fmtUSD0(curr)})`);
       }
     }
   }
 
-  if(mode === "below" || mode === "both"){
-    if(crossedBelow){
-      if(!alerts.crossOneShot || !alerts.crossFiredBelow){
-        if(canFireNow()){
-          alerts.crossFiredBelow = true;
-          fireAlert(`Crossed BELOW ${fmtUSD0(target)} (Now ${fmtUSD0(curr)})`);
-        }
+  if((mode === "below" || mode === "both") && crossedBelow){
+    if(!alerts.crossOneShot || !alerts.crossFiredBelow){
+      if(canFireNow()){
+        alerts.crossFiredBelow = true;
+        fireAlert(`Crossed BELOW ${fmtUSD0(target)} (Now ${fmtUSD0(curr)})`);
       }
     }
   }
@@ -1073,61 +1130,40 @@ function evalDeltaFromBase(curr){
   const diff = curr - base;
   const pct = (diff / base) * 100;
 
-  // $ up
   if(Number.isFinite(alerts.upUsd) && alerts.upUsd > 0){
     if(diff >= alerts.upUsd){
-      if(!alerts.firedUpUsd){
-        if(canFireNow()){
-          alerts.firedUpUsd = true;
-          fireAlert(`Up +${fmtUSD0(alerts.upUsd)} from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
-        }
+      if(!alerts.firedUpUsd && canFireNow()){
+        alerts.firedUpUsd = true;
+        fireAlert(`Up +${fmtUSD0(alerts.upUsd)} from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
       }
-    } else {
-      // allow re-fire after returning below threshold
-      alerts.firedUpUsd = false;
-    }
+    } else { alerts.firedUpUsd = false; }
   }
 
-  // $ down
   if(Number.isFinite(alerts.downUsd) && alerts.downUsd > 0){
     if((-diff) >= alerts.downUsd){
-      if(!alerts.firedDownUsd){
-        if(canFireNow()){
-          alerts.firedDownUsd = true;
-          fireAlert(`Down -${fmtUSD0(alerts.downUsd)} from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
-        }
+      if(!alerts.firedDownUsd && canFireNow()){
+        alerts.firedDownUsd = true;
+        fireAlert(`Down -${fmtUSD0(alerts.downUsd)} from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
       }
-    } else {
-      alerts.firedDownUsd = false;
-    }
+    } else { alerts.firedDownUsd = false; }
   }
 
-  // % up
   if(Number.isFinite(alerts.upPct) && alerts.upPct > 0){
     if(pct >= alerts.upPct){
-      if(!alerts.firedUpPct){
-        if(canFireNow()){
-          alerts.firedUpPct = true;
-          fireAlert(`Up +${alerts.upPct}% from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
-        }
+      if(!alerts.firedUpPct && canFireNow()){
+        alerts.firedUpPct = true;
+        fireAlert(`Up +${alerts.upPct}% from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
       }
-    } else {
-      alerts.firedUpPct = false;
-    }
+    } else { alerts.firedUpPct = false; }
   }
 
-  // % down
   if(Number.isFinite(alerts.downPct) && alerts.downPct > 0){
     if((-pct) >= alerts.downPct){
-      if(!alerts.firedDownPct){
-        if(canFireNow()){
-          alerts.firedDownPct = true;
-          fireAlert(`Down -${alerts.downPct}% from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
-        }
+      if(!alerts.firedDownPct && canFireNow()){
+        alerts.firedDownPct = true;
+        fireAlert(`Down -${alerts.downPct}% from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
       }
-    } else {
-      alerts.firedDownPct = false;
-    }
+    } else { alerts.firedDownPct = false; }
   }
 
   saveAlerts();
@@ -1139,7 +1175,16 @@ function evalAlerts(){
   evalDeltaFromBase(latestAmountNum);
 }
 
-/* ---------- PIXEL CHASE LINE (kept) ---------- */
+/* ---------- Alerts toggle ---------- */
+function setAlertsHidden(next){
+  alertsHidden = !!next;
+  localStorage.setItem(ALERTS_HIDDEN_KEY, alertsHidden ? "1" : "0");
+  rightPane.classList.toggle("alerts-hidden", alertsHidden);
+  toggleAlertsBtn.textContent = alertsHidden ? "Show alerts" : "Hide alerts";
+}
+toggleAlertsBtn.addEventListener("click", ()=> setAlertsHidden(!alertsHidden));
+
+/* ---------- PIXEL CHASE LINE ---------- */
 function snakeSvg(){
   return `
     <svg class="snake" viewBox="0 0 120 18" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
@@ -1320,30 +1365,20 @@ async function fetchPrice(){
 
     const amt = Number(j?.data?.amount);
     latestAmountNum = Number.isFinite(amt) ? amt : NaN;
-
-    latestPrice = new Intl.NumberFormat("en-US", {
-      style:"currency", currency:"USD", maximumFractionDigits:0
-    }).format(latestAmountNum);
+    latestPrice = fmtUSD0(latestAmountNum);
 
     lastGoodPriceUpdate = Date.now();
-
-    // v1.20: removed (MT) text
-    updated.textContent = "Updated: " + fmtTime("America/Denver");
-
+    updated.textContent = "Updated: " + fmtTime("America/Denver"); // no (MT)
     error.textContent = "";
 
     renderDisplays();
     updateStaleUI();
 
-    // alerts (evaluate AFTER successful update)
-    if(Number.isFinite(prevAmountNum)){
-      // nothing
-    }
+    // alerts evaluation
     evalAlerts();
 
-    // update prev at end
+    // keep previous for crossing logic
     prevAmountNum = latestAmountNum;
-
   }catch(e){
     error.textContent = "Error: " + (e?.message || String(e));
   }
@@ -1377,10 +1412,11 @@ function updateStaleUI(){
     primaryDisplay.classList.remove("is-stale");
   }
 
-  // alert pulse timeout
+  // end alert pulse after 60s
   if(alertPulseUntil && now > alertPulseUntil){
     alertPulseUntil = 0;
     setPrimaryAlertPulse(false);
+    stopBeep();
   }
 }
 
@@ -1459,6 +1495,7 @@ swapBtn.addEventListener("click", ()=>{
 });
 
 refreshBtn.addEventListener("click", ()=>{
+  primeAudio();
   fetchPrice();
   ensureWeather();
 });
@@ -1470,7 +1507,7 @@ function start(){
   // alerts init
   loadAlerts();
   syncAlertsUI();
-  updateBaseLabel();
+  setAlertsHidden(alertsHidden);
 
   applySwapTypography();
   renderDisplays();
