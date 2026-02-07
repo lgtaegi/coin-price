@@ -2,10 +2,9 @@
 Version: 1.23
 Date: 2026-02-07
 Updated:
-- Alert buttons now have clear visual states
-- Alert panel shows ON/OFF state at a glance
-- Enable / Blocked / Off are text + color differentiated
-- Arm button gives click feedback only (no persistent state)
+- Fixed alert button UI not updating
+- Alerts state now has a single source of truth
+- refreshAlertButtonsUI() is always called on state change
 Author: lgtaegi
 -->
 
@@ -23,15 +22,11 @@ Author: lgtaegi
   --border:#3a3a3a;
   --text:#e9e9e9;
   --muted:#b3b3b3;
-  --muted2:#9a9a9a;
   --green:#0f6d3a;
-  --stale:#7a8a4a;
-  --error:#ff6b6b;
-  --bright:#f3f3f3;
-  --alert:#ffd166;
+  --warn:#ff6b6b;
+  --on:#ffd166;
 }
 
-/* ---------- BASE ---------- */
 body{
   margin:0;
   padding:24px;
@@ -39,107 +34,87 @@ body{
   color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 }
+
 .card{
   max-width:560px;
-  margin:0 auto;
+  margin:auto;
   padding:20px;
   background:var(--card);
   border:1px solid var(--border);
   border-radius:14px;
-  position:relative;
-}
-h1{ margin:0; font-size:20px; }
-
-/* ---------- ALERT BUTTON STATES ---------- */
-.a-btn{
-  padding:5px 8px;
-  border-radius:9px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
-  color:var(--muted);
-  cursor:pointer;
-  font-size:11px;
-}
-.a-btn:hover{ background:rgba(255,255,255,0.06); }
-.a-btn:disabled{ opacity:.55; cursor:not-allowed; }
-
-.a-btn.is-on{
-  background: rgba(255,209,102,0.20);
-  border-color: rgba(255,209,102,0.70);
-  color: var(--bright);
-}
-.a-btn.is-off{
-  background: rgba(255,107,107,0.18);
-  border-color: rgba(255,107,107,0.70);
-  color: var(--bright);
-}
-.a-btn.is-warn{
-  background: rgba(255,107,107,0.22);
-  border-color: rgba(255,107,107,0.85);
-  color: var(--bright);
 }
 
-/* ---------- ALERT PANEL ON INDICATOR ---------- */
+h1{ margin:0 0 12px; font-size:20px; }
+
 .alert-panel{
-  margin-top:8px;
   border:1px solid var(--border);
   border-radius:12px;
-  padding:10px;
+  padding:12px;
   background:rgba(255,255,255,0.02);
 }
 .alert-panel.armed{
-  border-color: rgba(15,109,58,.75);
-  box-shadow: 0 0 0 2px rgba(15,109,58,.12) inset;
+  border-color:var(--green);
+  box-shadow:0 0 0 2px rgba(15,109,58,.2) inset;
 }
+
 .alert-title{
-  font-size:12px;
-  color:var(--muted2);
   display:flex;
-  gap:8px;
   align-items:center;
+  gap:8px;
+  font-size:13px;
+  color:var(--muted);
+  margin-bottom:10px;
 }
 .alert-title .dot{
   width:8px;height:8px;border-radius:50%;
-  background:rgba(255,209,102,.45);
+  background:#666;
 }
-.alert-panel.armed .alert-title .dot{
-  background: rgba(15,109,58,.8);
+.alert-panel.armed .dot{ background:var(--green); }
+
+.alert-actions{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
 }
 
-/* ---------- ARM FEEDBACK ---------- */
-@keyframes armFlash{
+.a-btn{
+  font-size:11px;
+  padding:6px 10px;
+  border-radius:9px;
+  border:1px solid var(--border);
+  background:#2a2a2a;
+  color:var(--muted);
+  cursor:pointer;
+}
+.a-btn:hover{ background:#333; }
+.a-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+.a-btn.on{
+  background:rgba(255,209,102,.25);
+  border-color:var(--on);
+  color:#fff;
+}
+.a-btn.off{
+  background:rgba(255,107,107,.25);
+  border-color:var(--warn);
+  color:#fff;
+}
+.a-btn.warn{
+  background:rgba(255,107,107,.35);
+  border-color:var(--warn);
+  color:#fff;
+}
+
+@keyframes pulse{
   0%{transform:scale(1)}
   50%{transform:scale(1.05)}
   100%{transform:scale(1)}
 }
-.a-btn.pulse{ animation:armFlash .35s ease-in-out; }
+.a-btn.pulse{ animation:pulse .35s ease; }
 
-/* ---------- LAYOUT ---------- */
-.alert-actions{ display:flex; gap:6px; }
-.a-row{ display:flex; gap:10px; flex-wrap:wrap; margin-top:8px; font-size:12px; }
-.a-row input, .a-row select{
-  background:rgba(0,0,0,.2);
-  border:1px solid var(--border);
-  border-radius:8px;
-  color:var(--text);
-  padding:4px 6px;
-}
-
-/* ---------- TOAST ---------- */
-.toast{
-  position:absolute;
-  inset:14px;
-  padding:10px;
-  border-radius:12px;
-  border:1px solid rgba(255,209,102,.4);
-  background:rgba(20,20,20,.95);
-  display:none;
-  justify-content:space-between;
-}
-.toast.show{ display:flex; }
-.toast button{
-  background:none;border:1px solid var(--border);
-  color:var(--muted);border-radius:8px;
+.a-row{
+  font-size:12px;
+  color:var(--muted);
 }
 </style>
 </head>
@@ -149,7 +124,7 @@ h1{ margin:0; font-size:20px; }
 
 <h1>Bitcoin Dashboard</h1>
 
-<div class="alert-panel" id="alertPanel">
+<div id="alertPanel" class="alert-panel">
   <div class="alert-title">
     <span class="dot"></span>
     Price Alerts
@@ -158,17 +133,15 @@ h1{ margin:0; font-size:20px; }
   <div class="alert-actions">
     <button id="notifBtn" class="a-btn">Enable</button>
     <button id="armBtn" class="a-btn">Arm</button>
-    <button id="disarmBtn" class="a-btn">Off</button>
+    <button id="offBtn" class="a-btn">Off</button>
   </div>
 
   <div class="a-row">
-    <label><input id="alertsEnabled" type="checkbox"> Alerts On</label>
+    <label>
+      <input type="checkbox" id="alertsEnabled">
+      Alerts On
+    </label>
   </div>
-</div>
-
-<div id="toast" class="toast">
-  <span id="toastMsg"></span>
-  <button onclick="toast.classList.remove('show')">✕</button>
 </div>
 
 </div>
@@ -176,75 +149,74 @@ h1{ margin:0; font-size:20px; }
 <script>
 const notifBtn = document.getElementById("notifBtn");
 const armBtn = document.getElementById("armBtn");
-const disarmBtn = document.getElementById("disarmBtn");
+const offBtn = document.getElementById("offBtn");
 const alertsEnabled = document.getElementById("alertsEnabled");
 const alertPanel = document.getElementById("alertPanel");
-const toast = document.getElementById("toast");
-const toastMsg = document.getElementById("toastMsg");
 
-let alerts = { enabled:false };
+const alerts = {
+  enabled:false
+};
 
-function showToast(msg){
-  toastMsg.textContent = msg;
-  toast.classList.add("show");
-  setTimeout(()=>toast.classList.remove("show"),4000);
-}
-
+/* ---------- UI ---------- */
 function refreshAlertButtonsUI(){
-  [notifBtn, armBtn, disarmBtn].forEach(b=>{
+  // reset
+  [notifBtn, armBtn, offBtn].forEach(b=>{
     b.className = "a-btn";
     b.disabled = false;
   });
 
+  // panel ON/OFF
   alertPanel.classList.toggle("armed", alerts.enabled);
 
-  if("Notification" in window){
+  // notification button
+  if(!("Notification" in window)){
+    notifBtn.textContent = "No Notify";
+    notifBtn.disabled = true;
+  }else{
     if(Notification.permission === "granted"){
       notifBtn.textContent = "Enabled ✓";
-      notifBtn.classList.add("is-on");
+      notifBtn.classList.add("on");
     }else if(Notification.permission === "denied"){
       notifBtn.textContent = "Blocked ✕";
-      notifBtn.classList.add("is-warn");
+      notifBtn.classList.add("warn");
     }else{
       notifBtn.textContent = "Enable";
     }
-  }else{
-    notifBtn.textContent = "No Notify";
-    notifBtn.disabled = true;
   }
 
+  // off button
   if(!alerts.enabled){
-    disarmBtn.textContent = "Off ●";
-    disarmBtn.classList.add("is-off");
+    offBtn.textContent = "Off ●";
+    offBtn.classList.add("off");
   }else{
-    disarmBtn.textContent = "Off";
+    offBtn.textContent = "Off";
   }
 }
 
-notifBtn.onclick = async ()=>{
-  const p = await Notification.requestPermission();
+/* ---------- EVENTS ---------- */
+notifBtn.addEventListener("click", async ()=>{
+  if(!("Notification" in window)) return;
+  await Notification.requestPermission();
   refreshAlertButtonsUI();
-  showToast(p==="granted"?"Notifications enabled":"Notifications blocked");
-};
+});
 
-armBtn.onclick = ()=>{
-  armBtn.classList.add("pulse");
-  setTimeout(()=>armBtn.classList.remove("pulse"),350);
-  showToast("Base price armed");
-};
+alertsEnabled.addEventListener("change", ()=>{
+  alerts.enabled = alertsEnabled.checked;
+  refreshAlertButtonsUI();
+});
 
-disarmBtn.onclick = ()=>{
+offBtn.addEventListener("click", ()=>{
   alerts.enabled = false;
   alertsEnabled.checked = false;
   refreshAlertButtonsUI();
-  showToast("Alerts off");
-};
+});
 
-alertsEnabled.onchange = ()=>{
-  alerts.enabled = alertsEnabled.checked;
-  refreshAlertButtonsUI();
-};
+armBtn.addEventListener("click", ()=>{
+  armBtn.classList.add("pulse");
+  setTimeout(()=>armBtn.classList.remove("pulse"),350);
+});
 
+/* ---------- START ---------- */
 refreshAlertButtonsUI();
 </script>
 </body>
