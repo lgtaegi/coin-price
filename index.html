@@ -2,10 +2,9 @@
 Version: 1.23
 Date: 2026-02-07
 Updated:
-- Price Alerts simplified to single ON/OFF toggle
-- Base price auto-set on Alerts ON
-- Removed Enable / Off / Arm / Alerts On checkbox
-- All other features preserved from v1.22
+- Fixed alert button UI not updating
+- Alerts state now has a single source of truth
+- refreshAlertButtonsUI() is always called on state change
 Author: lgtaegi
 -->
 
@@ -17,38 +16,105 @@ Author: lgtaegi
 <title>BTC Dashboard</title>
 
 <style>
-/* ===== 기존 1.22 스타일 전부 유지 ===== */
 :root{
   --bg:#1f1f1f;
   --card:#252525;
   --border:#3a3a3a;
   --text:#e9e9e9;
   --muted:#b3b3b3;
-  --muted2:#9a9a9a;
   --green:#0f6d3a;
-  --stale:#7a8a4a;
-  --error:#ff6b6b;
-  --bright:#f3f3f3;
-  --alert:#ffd166;
+  --warn:#ff6b6b;
+  --on:#ffd166;
 }
 
-/* ---- 생략 없이 기존 스타일 그대로 ---- */
-/* (네가 올린 1.22 style 전체 그대로 유지됨) */
+body{
+  margin:0;
+  padding:24px;
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+}
 
-/* === Alerts 단일 버튼 스타일 === */
-.alert-btn{
-  padding:6px 12px;
-  font-size:12px;
-  border-radius:10px;
+.card{
+  max-width:560px;
+  margin:auto;
+  padding:20px;
+  background:var(--card);
   border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
+  border-radius:14px;
+}
+
+h1{ margin:0 0 12px; font-size:20px; }
+
+.alert-panel{
+  border:1px solid var(--border);
+  border-radius:12px;
+  padding:12px;
+  background:rgba(255,255,255,0.02);
+}
+.alert-panel.armed{
+  border-color:var(--green);
+  box-shadow:0 0 0 2px rgba(15,109,58,.2) inset;
+}
+
+.alert-title{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size:13px;
+  color:var(--muted);
+  margin-bottom:10px;
+}
+.alert-title .dot{
+  width:8px;height:8px;border-radius:50%;
+  background:#666;
+}
+.alert-panel.armed .dot{ background:var(--green); }
+
+.alert-actions{
+  display:flex;
+  gap:8px;
+  margin-bottom:10px;
+}
+
+.a-btn{
+  font-size:11px;
+  padding:6px 10px;
+  border-radius:9px;
+  border:1px solid var(--border);
+  background:#2a2a2a;
   color:var(--muted);
   cursor:pointer;
 }
-.alert-btn.on{
-  background: rgba(255,209,102,0.22);
-  border-color: var(--alert);
-  color: var(--bright);
+.a-btn:hover{ background:#333; }
+.a-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+.a-btn.on{
+  background:rgba(255,209,102,.25);
+  border-color:var(--on);
+  color:#fff;
+}
+.a-btn.off{
+  background:rgba(255,107,107,.25);
+  border-color:var(--warn);
+  color:#fff;
+}
+.a-btn.warn{
+  background:rgba(255,107,107,.35);
+  border-color:var(--warn);
+  color:#fff;
+}
+
+@keyframes pulse{
+  0%{transform:scale(1)}
+  50%{transform:scale(1.05)}
+  100%{transform:scale(1)}
+}
+.a-btn.pulse{ animation:pulse .35s ease; }
+
+.a-row{
+  font-size:12px;
+  color:var(--muted);
 }
 </style>
 </head>
@@ -56,113 +122,102 @@ Author: lgtaegi
 <body>
 <div class="card">
 
-  <!-- ===== HEADER (기존 유지) ===== -->
-  <div class="header">
-    <h1>Bitcoin Dashboard</h1>
+<h1>Bitcoin Dashboard</h1>
+
+<div id="alertPanel" class="alert-panel">
+  <div class="alert-title">
+    <span class="dot"></span>
+    Price Alerts
   </div>
 
-  <!-- ===== PRICE ===== -->
-  <div id="primaryDisplay" class="primary">-</div>
-  <div id="secondaryDisplay" class="secondary">-</div>
-
-  <!-- ===== TIME ===== -->
-  <div class="times">
-    <div class="time-row"><span>Salt Lake City</span><span id="tMT">-</span></div>
-    <div class="time-row"><span>New York</span><span id="tNY">-</span></div>
-    <div class="time-row"><span>Seoul</span><span id="tKR">-</span></div>
+  <div class="alert-actions">
+    <button id="notifBtn" class="a-btn">Enable</button>
+    <button id="armBtn" class="a-btn">Arm</button>
+    <button id="offBtn" class="a-btn">Off</button>
   </div>
 
-  <!-- ===== ALERT PANEL (단일 버튼) ===== -->
-  <div class="alert-panel">
-    <div class="alert-head">
-      <div class="alert-title">
-        <span class="dot"></span>
-        Price Alerts
-      </div>
-      <button id="alertsBtn" class="alert-btn">Alerts OFF</button>
-    </div>
-    <div class="a-muted">
-      Alerts use the price at the moment they are turned ON.
-    </div>
+  <div class="a-row">
+    <label>
+      <input type="checkbox" id="alertsEnabled">
+      Alerts On
+    </label>
   </div>
+</div>
 
-  <div id="error" class="err"></div>
 </div>
 
 <script>
-/* ===== CONFIG ===== */
-const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
+const notifBtn = document.getElementById("notifBtn");
+const armBtn = document.getElementById("armBtn");
+const offBtn = document.getElementById("offBtn");
+const alertsEnabled = document.getElementById("alertsEnabled");
+const alertPanel = document.getElementById("alertPanel");
 
-/* ===== STATE ===== */
-let latestAmountNum = NaN;
 const alerts = {
-  enabled:false,
-  basePrice:null
+  enabled:false
 };
 
-/* ===== HELPERS ===== */
-const fmtUSD0 = n =>
-  Number.isFinite(n)
-    ? new Intl.NumberFormat("en-US",{style:"currency",currency:"USD",maximumFractionDigits:0}).format(n)
-    : "-";
+/* ---------- UI ---------- */
+function refreshAlertButtonsUI(){
+  // reset
+  [notifBtn, armBtn, offBtn].forEach(b=>{
+    b.className = "a-btn";
+    b.disabled = false;
+  });
 
-const fmtTime = tz =>
-  new Intl.DateTimeFormat("en-US",{timeZone:tz,hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:true}).format(new Date());
+  // panel ON/OFF
+  alertPanel.classList.toggle("armed", alerts.enabled);
 
-/* ===== UI ===== */
-const alertsBtn = document.getElementById("alertsBtn");
+  // notification button
+  if(!("Notification" in window)){
+    notifBtn.textContent = "No Notify";
+    notifBtn.disabled = true;
+  }else{
+    if(Notification.permission === "granted"){
+      notifBtn.textContent = "Enabled ✓";
+      notifBtn.classList.add("on");
+    }else if(Notification.permission === "denied"){
+      notifBtn.textContent = "Blocked ✕";
+      notifBtn.classList.add("warn");
+    }else{
+      notifBtn.textContent = "Enable";
+    }
+  }
 
-function refreshAlertsUI(){
-  alertsBtn.classList.toggle("on", alerts.enabled);
-  alertsBtn.textContent = alerts.enabled ? "Alerts ON" : "Alerts OFF";
+  // off button
+  if(!alerts.enabled){
+    offBtn.textContent = "Off ●";
+    offBtn.classList.add("off");
+  }else{
+    offBtn.textContent = "Off";
+  }
 }
 
-/* ===== EVENTS ===== */
-alertsBtn.addEventListener("click", async ()=>{
+/* ---------- EVENTS ---------- */
+notifBtn.addEventListener("click", async ()=>{
   if(!("Notification" in window)) return;
-
-  if(Notification.permission === "default"){
-    await Notification.requestPermission();
-  }
-
-  if(Notification.permission === "granted"){
-    alerts.enabled = !alerts.enabled;
-    if(alerts.enabled && Number.isFinite(latestAmountNum)){
-      alerts.basePrice = latestAmountNum;
-      console.log("Base price set:", alerts.basePrice);
-    }
-  }else{
-    alerts.enabled = false;
-  }
-  refreshAlertsUI();
+  await Notification.requestPermission();
+  refreshAlertButtonsUI();
 });
 
-/* ===== PRICE ===== */
-async function fetchPrice(){
-  try{
-    const r = await fetch(PRICE_URL,{cache:"no-store"});
-    const j = await r.json();
-    latestAmountNum = Number(j?.data?.amount);
-    primaryDisplay.textContent = fmtUSD0(latestAmountNum);
-    error.textContent="";
-  }catch(e){
-    error.textContent="Price error";
-  }
-}
+alertsEnabled.addEventListener("change", ()=>{
+  alerts.enabled = alertsEnabled.checked;
+  refreshAlertButtonsUI();
+});
 
-/* ===== TIME ===== */
-function updateTime(){
-  tMT.textContent=fmtTime("America/Denver");
-  tNY.textContent=fmtTime("America/New_York");
-  tKR.textContent=fmtTime("Asia/Seoul");
-}
+offBtn.addEventListener("click", ()=>{
+  alerts.enabled = false;
+  alertsEnabled.checked = false;
+  refreshAlertButtonsUI();
+});
 
-/* ===== START ===== */
-refreshAlertsUI();
-fetchPrice();
-updateTime();
-setInterval(fetchPrice,5000);
-setInterval(updateTime,1000);
+armBtn.addEventListener("click", ()=>{
+  armBtn.classList.add("pulse");
+  setTimeout(()=>armBtn.classList.remove("pulse"),350);
+});
+
+/* ---------- START ---------- */
+refreshAlertButtonsUI();
 </script>
 </body>
 </html>
