@@ -2,9 +2,10 @@
 Version: 1.23
 Date: 2026-02-07
 Updated:
-- Fixed alert button UI not updating
-- Alerts state now has a single source of truth
-- refreshAlertButtonsUI() is always called on state change
+- Price Alerts redesigned to single-toggle button
+- Removed Off button and Alerts On checkbox
+- Alerts button now toggles ON/OFF with clear visual state
+- alerts.enabled is the single source of truth
 Author: lgtaegi
 -->
 
@@ -23,10 +24,11 @@ Author: lgtaegi
   --text:#e9e9e9;
   --muted:#b3b3b3;
   --green:#0f6d3a;
+  --alert:#ffd166;
   --warn:#ff6b6b;
-  --on:#ffd166;
 }
 
+/* ---------- BASE ---------- */
 body{
   margin:0;
   padding:24px;
@@ -34,7 +36,6 @@ body{
   color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 }
-
 .card{
   max-width:560px;
   margin:auto;
@@ -44,8 +45,7 @@ body{
   border-radius:14px;
 }
 
-h1{ margin:0 0 12px; font-size:20px; }
-
+/* ---------- ALERT PANEL ---------- */
 .alert-panel{
   border:1px solid var(--border);
   border-radius:12px;
@@ -54,16 +54,20 @@ h1{ margin:0 0 12px; font-size:20px; }
 }
 .alert-panel.armed{
   border-color:var(--green);
-  box-shadow:0 0 0 2px rgba(15,109,58,.2) inset;
+  box-shadow:0 0 0 2px rgba(15,109,58,.18) inset;
 }
 
+.alert-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
 .alert-title{
+  font-size:12px;
+  color:var(--muted);
   display:flex;
   align-items:center;
   gap:8px;
-  font-size:13px;
-  color:var(--muted);
-  margin-bottom:10px;
 }
 .alert-title .dot{
   width:8px;height:8px;border-radius:50%;
@@ -71,50 +75,44 @@ h1{ margin:0 0 12px; font-size:20px; }
 }
 .alert-panel.armed .dot{ background:var(--green); }
 
-.alert-actions{
-  display:flex;
-  gap:8px;
-  margin-bottom:10px;
-}
-
-.a-btn{
-  font-size:11px;
-  padding:6px 10px;
-  border-radius:9px;
+.alert-btn{
+  padding:6px 12px;
+  font-size:12px;
+  border-radius:10px;
   border:1px solid var(--border);
   background:#2a2a2a;
   color:var(--muted);
   cursor:pointer;
 }
-.a-btn:hover{ background:#333; }
-.a-btn:disabled{ opacity:.5; cursor:not-allowed; }
+.alert-btn:hover{ background:#333; }
 
-.a-btn.on{
-  background:rgba(255,209,102,.25);
-  border-color:var(--on);
+.alert-btn.on{
+  background:rgba(255,209,102,.22);
+  border-color:var(--alert);
   color:#fff;
 }
-.a-btn.off{
+.alert-btn.warn{
   background:rgba(255,107,107,.25);
   border-color:var(--warn);
   color:#fff;
 }
-.a-btn.warn{
-  background:rgba(255,107,107,.35);
-  border-color:var(--warn);
-  color:#fff;
-}
 
-@keyframes pulse{
-  0%{transform:scale(1)}
-  50%{transform:scale(1.05)}
-  100%{transform:scale(1)}
-}
-.a-btn.pulse{ animation:pulse .35s ease; }
-
+/* ---------- ALERT OPTIONS ---------- */
 .a-row{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:10px;
   font-size:12px;
   color:var(--muted);
+}
+.a-row input{
+  width:90px;
+  padding:4px 6px;
+  border-radius:8px;
+  border:1px solid var(--border);
+  background:rgba(0,0,0,.2);
+  color:var(--text);
 }
 </style>
 </head>
@@ -122,102 +120,85 @@ h1{ margin:0 0 12px; font-size:20px; }
 <body>
 <div class="card">
 
-<h1>Bitcoin Dashboard</h1>
+<h2>Bitcoin Dashboard</h2>
 
 <div id="alertPanel" class="alert-panel">
-  <div class="alert-title">
-    <span class="dot"></span>
-    Price Alerts
-  </div>
-
-  <div class="alert-actions">
-    <button id="notifBtn" class="a-btn">Enable</button>
-    <button id="armBtn" class="a-btn">Arm</button>
-    <button id="offBtn" class="a-btn">Off</button>
+  <div class="alert-head">
+    <div class="alert-title">
+      <span class="dot"></span>
+      Price Alerts
+    </div>
+    <button id="alertsBtn" class="alert-btn">Enable Alerts</button>
   </div>
 
   <div class="a-row">
-    <label>
-      <input type="checkbox" id="alertsEnabled">
-      Alerts On
-    </label>
+    Cooldown (min)
+    <input id="cooldownMin" type="number" min="0" step="1" value="5">
   </div>
 </div>
 
 </div>
 
 <script>
-const notifBtn = document.getElementById("notifBtn");
-const armBtn = document.getElementById("armBtn");
-const offBtn = document.getElementById("offBtn");
-const alertsEnabled = document.getElementById("alertsEnabled");
-const alertPanel = document.getElementById("alertPanel");
-
+/* ---------- STATE ---------- */
 const alerts = {
-  enabled:false
+  enabled:false,
+  cooldownMin:5
 };
 
-/* ---------- UI ---------- */
-function refreshAlertButtonsUI(){
-  // reset
-  [notifBtn, armBtn, offBtn].forEach(b=>{
-    b.className = "a-btn";
-    b.disabled = false;
-  });
+const alertsBtn = document.getElementById("alertsBtn");
+const alertPanel = document.getElementById("alertPanel");
+const cooldownMin = document.getElementById("cooldownMin");
 
-  // panel ON/OFF
+/* ---------- UI ---------- */
+function refreshAlertsUI(){
+  alertsBtn.className = "alert-btn";
   alertPanel.classList.toggle("armed", alerts.enabled);
 
-  // notification button
   if(!("Notification" in window)){
-    notifBtn.textContent = "No Notify";
-    notifBtn.disabled = true;
-  }else{
-    if(Notification.permission === "granted"){
-      notifBtn.textContent = "Enabled ✓";
-      notifBtn.classList.add("on");
-    }else if(Notification.permission === "denied"){
-      notifBtn.textContent = "Blocked ✕";
-      notifBtn.classList.add("warn");
-    }else{
-      notifBtn.textContent = "Enable";
-    }
+    alertsBtn.textContent = "No Notifications";
+    alertsBtn.disabled = true;
+    return;
   }
 
-  // off button
-  if(!alerts.enabled){
-    offBtn.textContent = "Off ●";
-    offBtn.classList.add("off");
+  if(Notification.permission === "denied"){
+    alerts.enabled = false;
+    alertsBtn.textContent = "Blocked ✕";
+    alertsBtn.classList.add("warn");
+    return;
+  }
+
+  if(alerts.enabled){
+    alertsBtn.textContent = "Alerts ON";
+    alertsBtn.classList.add("on");
   }else{
-    offBtn.textContent = "Off";
+    alertsBtn.textContent = "Alerts OFF";
   }
 }
 
 /* ---------- EVENTS ---------- */
-notifBtn.addEventListener("click", async ()=>{
+alertsBtn.addEventListener("click", async ()=>{
   if(!("Notification" in window)) return;
-  await Notification.requestPermission();
-  refreshAlertButtonsUI();
+
+  if(Notification.permission === "default"){
+    await Notification.requestPermission();
+  }
+
+  if(Notification.permission === "granted"){
+    alerts.enabled = !alerts.enabled; // ⭐ 토글
+  }else{
+    alerts.enabled = false;
+  }
+
+  refreshAlertsUI();
 });
 
-alertsEnabled.addEventListener("change", ()=>{
-  alerts.enabled = alertsEnabled.checked;
-  refreshAlertButtonsUI();
-});
-
-offBtn.addEventListener("click", ()=>{
-  alerts.enabled = false;
-  alertsEnabled.checked = false;
-  refreshAlertButtonsUI();
-});
-
-armBtn.addEventListener("click", ()=>{
-  armBtn.classList.add("pulse");
-  setTimeout(()=>armBtn.classList.remove("pulse"),350);
+cooldownMin.addEventListener("change", ()=>{
+  alerts.cooldownMin = Math.max(0, Number(cooldownMin.value || 0));
 });
 
 /* ---------- START ---------- */
-refreshAlertButtonsUI();
+refreshAlertsUI();
 </script>
 </body>
 </html>
