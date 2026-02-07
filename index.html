@@ -1,223 +1,120 @@
 <!--
-Version: 1.23
-Date: 2026-02-07
+Version: 1.22
+Date: 2026-02-05
 Updated:
-- Fixed alert button UI not updating
-- Alerts state now has a single source of truth
-- refreshAlertButtonsUI() is always called on state change
+- Price Alerts header buttons resized to fit inside the right pane frame
+- Button highlight logic refined:
+  - Enable highlights only when browser Notification permission is granted
+  - Off highlights only when Alerts are OFF
+  - Arm stays neutral (no persistent highlight)
 Author: lgtaegi
 -->
 
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>BTC Dashboard</title>
+<!-- ✅ Drop-in PATCH: replace ONLY these parts in your existing 1.22 file:
+  1) CSS: replace the .a-btn styles + add .a-btn--small
+  2) JS: replace refreshAlertButtonsUI() + small part of syncAlertsUI() for Enable label
+  (Everything else stays the same.)
+-->
 
 <style>
-:root{
-  --bg:#1f1f1f;
-  --card:#252525;
-  --border:#3a3a3a;
-  --text:#e9e9e9;
-  --muted:#b3b3b3;
-  --green:#0f6d3a;
-  --warn:#ff6b6b;
-  --on:#ffd166;
-}
-
-body{
-  margin:0;
-  padding:24px;
-  background:var(--bg);
-  color:var(--text);
-  font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
-}
-
-.card{
-  max-width:560px;
-  margin:auto;
-  padding:20px;
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:14px;
-}
-
-h1{ margin:0 0 12px; font-size:20px; }
-
-.alert-panel{
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:12px;
-  background:rgba(255,255,255,0.02);
-}
-.alert-panel.armed{
-  border-color:var(--green);
-  box-shadow:0 0 0 2px rgba(15,109,58,.2) inset;
-}
-
-.alert-title{
-  display:flex;
-  align-items:center;
-  gap:8px;
-  font-size:13px;
-  color:var(--muted);
-  margin-bottom:10px;
-}
-.alert-title .dot{
-  width:8px;height:8px;border-radius:50%;
-  background:#666;
-}
-.alert-panel.armed .dot{ background:var(--green); }
-
-.alert-actions{
-  display:flex;
-  gap:8px;
-  margin-bottom:10px;
-}
+/* ====== REPLACE your existing .a-btn / state styles with these ====== */
 
 .a-btn{
-  font-size:11px;
-  padding:6px 10px;
+  padding:5px 8px;              /* smaller */
   border-radius:9px;
   border:1px solid var(--border);
-  background:#2a2a2a;
+  background:rgba(255,255,255,0.03);
   color:var(--muted);
   cursor:pointer;
+  font-size:11px;               /* smaller */
+  line-height:1;
+  white-space:nowrap;
 }
-.a-btn:hover{ background:#333; }
-.a-btn:disabled{ opacity:.5; cursor:not-allowed; }
+.a-btn:hover{ background:rgba(255,255,255,0.06); }
+.a-btn:active{ transform:translateY(1px); }
 
-.a-btn.on{
-  background:rgba(255,209,102,.25);
-  border-color:var(--on);
-  color:#fff;
+/* “selected” (bright) states – used ONLY for Enable(granted) and Off(alerts off) */
+.a-btn.is-on{
+  background: rgba(255, 209, 102, 0.18);
+  border-color: rgba(255, 209, 102, 0.60);
+  color: var(--bright);
+  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.10) inset;
 }
-.a-btn.off{
-  background:rgba(255,107,107,.25);
-  border-color:var(--warn);
-  color:#fff;
-}
-.a-btn.warn{
-  background:rgba(255,107,107,.35);
-  border-color:var(--warn);
-  color:#fff;
+.a-btn.is-off{
+  background: rgba(255, 107, 107, 0.12);
+  border-color: rgba(255, 107, 107, 0.55);
+  color: var(--bright);
+  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.08) inset;
 }
 
-@keyframes pulse{
-  0%{transform:scale(1)}
-  50%{transform:scale(1.05)}
-  100%{transform:scale(1)}
+/* neutral = default */
+.a-btn.is-neutral{
+  background: rgba(255,255,255,0.03);
+  border-color: var(--border);
+  color: var(--muted);
+  box-shadow:none;
 }
-.a-btn.pulse{ animation:pulse .35s ease; }
 
-.a-row{
-  font-size:12px;
-  color:var(--muted);
-}
+/* optional: slightly tighter container spacing */
+.alert-actions{ display:flex; gap:6px; align-items:center; }
 </style>
-</head>
-
-<body>
-<div class="card">
-
-<h1>Bitcoin Dashboard</h1>
-
-<div id="alertPanel" class="alert-panel">
-  <div class="alert-title">
-    <span class="dot"></span>
-    Price Alerts
-  </div>
-
-  <div class="alert-actions">
-    <button id="notifBtn" class="a-btn">Enable</button>
-    <button id="armBtn" class="a-btn">Arm</button>
-    <button id="offBtn" class="a-btn">Off</button>
-  </div>
-
-  <div class="a-row">
-    <label>
-      <input type="checkbox" id="alertsEnabled">
-      Alerts On
-    </label>
-  </div>
-</div>
-
-</div>
 
 <script>
-const notifBtn = document.getElementById("notifBtn");
-const armBtn = document.getElementById("armBtn");
-const offBtn = document.getElementById("offBtn");
-const alertsEnabled = document.getElementById("alertsEnabled");
-const alertPanel = document.getElementById("alertPanel");
-
-const alerts = {
-  enabled:false
-};
-
-/* ---------- UI ---------- */
+/* ====== REPLACE refreshAlertButtonsUI() with this version ====== */
 function refreshAlertButtonsUI(){
-  // reset
-  [notifBtn, armBtn, offBtn].forEach(b=>{
-    b.className = "a-btn";
-    b.disabled = false;
+  // reset classes
+  [notifBtn, armBtn, disarmBtn].forEach(b=>{
+    b.classList.remove("is-on","is-off","is-neutral");
+    b.classList.add("is-neutral");
   });
 
-  // panel ON/OFF
-  alertPanel.classList.toggle("armed", alerts.enabled);
-
-  // notification button
+  // Enable button: bright ONLY if Notification permission is granted
   if(!("Notification" in window)){
     notifBtn.textContent = "No Notify";
     notifBtn.disabled = true;
-  }else{
-    if(Notification.permission === "granted"){
-      notifBtn.textContent = "Enabled ✓";
-      notifBtn.classList.add("on");
-    }else if(Notification.permission === "denied"){
-      notifBtn.textContent = "Blocked ✕";
-      notifBtn.classList.add("warn");
-    }else{
-      notifBtn.textContent = "Enable";
-    }
+    // keep neutral
+  } else {
+    notifBtn.disabled = false;
+    const p = Notification.permission;
+    // label
+    notifBtn.textContent = (p === "granted") ? "Enabled" : (p === "denied" ? "Blocked" : "Enable");
+    // highlight rule
+    if(p === "granted") notifBtn.classList.add("is-on");
   }
 
-  // off button
+  // Arm button: ALWAYS neutral (no persistent highlight)
+  armBtn.classList.add("is-neutral");
+
+  // Off button: bright ONLY when alerts are OFF
   if(!alerts.enabled){
-    offBtn.textContent = "Off ●";
-    offBtn.classList.add("off");
-  }else{
-    offBtn.textContent = "Off";
+    disarmBtn.classList.add("is-off");
+  } else {
+    disarmBtn.classList.add("is-neutral");
   }
 }
 
-/* ---------- EVENTS ---------- */
-notifBtn.addEventListener("click", async ()=>{
-  if(!("Notification" in window)) return;
-  await Notification.requestPermission();
+/* ====== OPTIONAL: remove any old Enable-label logic inside syncAlertsUI()
+   If your syncAlertsUI() sets notifBtn.textContent, you can delete that part
+   and just call refreshAlertButtonsUI() at the end. Example below.
+====== */
+function syncAlertsUI(){
+  alertsEnabled.checked = !!alerts.enabled;
+  cooldownMin.value = String(alerts.cooldownMin ?? 5);
+
+  crossEnabled.checked = !!alerts.crossEnabled;
+  crossTarget.value = (Number.isFinite(alerts.crossTarget) ? String(Math.round(alerts.crossTarget)) : "");
+  crossMode.value = alerts.crossMode || "above";
+  crossOneShot.checked = !!alerts.crossOneShot;
+
+  deltaEnabled.checked = !!alerts.deltaEnabled;
+  upUsd.value = (Number.isFinite(alerts.upUsd) ? String(Math.round(alerts.upUsd)) : "");
+  downUsd.value = (Number.isFinite(alerts.downUsd) ? String(Math.round(alerts.downUsd)) : "");
+  upPct.value = (Number.isFinite(alerts.upPct) ? String(alerts.upPct) : "");
+  downPct.value = (Number.isFinite(alerts.downPct) ? String(alerts.downPct) : "");
+
+  updateBaseLabel();
+
+  // ✅ Let refreshAlertButtonsUI decide label + colors
   refreshAlertButtonsUI();
-});
-
-alertsEnabled.addEventListener("change", ()=>{
-  alerts.enabled = alertsEnabled.checked;
-  refreshAlertButtonsUI();
-});
-
-offBtn.addEventListener("click", ()=>{
-  alerts.enabled = false;
-  alertsEnabled.checked = false;
-  refreshAlertButtonsUI();
-});
-
-armBtn.addEventListener("click", ()=>{
-  armBtn.classList.add("pulse");
-  setTimeout(()=>armBtn.classList.remove("pulse"),350);
-});
-
-/* ---------- START ---------- */
-refreshAlertButtonsUI();
+}
 </script>
-</body>
-</html>
