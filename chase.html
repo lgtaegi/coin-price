@@ -1,66 +1,106 @@
-<svg
-  width="260"
-  height="80"
-  viewBox="0 0 260 80"
-  xmlns="http://www.w3.org/2000/svg"
-  shape-rendering="crispEdges">
+<svg width="300" height="100" viewBox="0 0 300 100"
+     xmlns="http://www.w3.org/2000/svg"
+     shape-rendering="crispEdges">
+
+  <style>
+    .miner-bounce {
+      animation: minerBounce 0.6s infinite alternate;
+    }
+    @keyframes minerBounce {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-2px); }
+    }
+
+    .pickaxe-swing {
+      animation: pickSwing 0.5s infinite alternate;
+      transform-origin: left center;
+    }
+    @keyframes pickSwing {
+      from { transform: rotate(-15deg); }
+      to   { transform: rotate(20deg); }
+    }
+
+    .dino-bob {
+      animation: dinoBob 0.7s infinite alternate;
+    }
+    @keyframes dinoBob {
+      from { transform: translateY(0); }
+      to   { transform: translateY(2px); }
+    }
+  </style>
 
   <!-- 배경 -->
-  <rect x="0" y="0" width="260" height="80" fill="#1f1f1f" />
+  <rect x="0" y="0" width="300" height="100" fill="#1f1f1f" />
 
   <!-- 땅 -->
-  <rect x="0" y="50" width="260" height="30" fill="#3b2a1a" />
-  <rect x="0" y="50" width="260" height="4" fill="#5a3a20" />
+  <rect x="0" y="70" width="300" height="30" fill="#3b2a1a" />
+  <rect x="0" y="70" width="300" height="4" fill="#5a3a20" />
 
   <!-- 비트코인 동전 (반쯤 묻힘) -->
-  <!-- 동전 테두리 -->
-  <rect x="40" y="30" width="24" height="24" fill="#c9a23a" />
-  <rect x="42" y="32" width="20" height="20" fill="#f2c96a" />
-  <!-- 땅에 묻힌 부분 가리기 -->
-  <rect x="40" y="42" width="24" height="12" fill="#3b2a1a" />
-  <!-- B 모양 간단 도트 -->
-  <rect x="47" y="34" width="2" height="10" fill="#8b5a2b" />
-  <rect x="49" y="34" width="4" height="2" fill="#8b5a2b" />
-  <rect x="49" y="38" width="4" height="2" fill="#8b5a2b" />
-  <rect x="49" y="42" width="4" height="2" fill="#8b5a2b" />
+  <g>
+    <!-- 동전 테두리 -->
+    <rect x="40" y="35" width="30" height="30" fill="#c89b1f" />
+    <!-- 안쪽 -->
+    <rect x="43" y="38" width="24" height="24" fill="#f2c14e" />
+    <!-- 땅에 묻힌 부분 -->
+    <rect x="40" y="52" width="30" height="13" fill="#3b2a1a" />
 
-  <!-- 사람 (마인크래프트 스타일) -->
-  <!-- 다리 -->
-  <rect x="110" y="44" width="6" height="12" fill="#2f6fb3" />
-  <rect x="118" y="44" width="6" height="12" fill="#2f6fb3" />
-  <!-- 몸통 -->
-  <rect x="108" y="32" width="18" height="12" fill="#1d5a31" />
-  <!-- 머리 -->
-  <rect x="110" y="22" width="14" height="10" fill="#f2c9a0" />
-  <!-- 눈 -->
-  <rect x="113" y="25" width="2" height="2" fill="#111111" />
-  <rect x="119" y="25" width="2" height="2" fill="#111111" />
-  <!-- 팔 -->
-  <rect x="102" y="32" width="6" height="10" fill="#1d5a31" />
-  <rect x="126" y="32" width="6" height="10" fill="#1d5a31" />
-
-  <!-- 곡갱이 (사람 오른쪽 위로) -->
-  <g transform="translate(132,24)">
-    <!-- 손잡이 -->
-    <rect x="0" y="4" width="14" height="3" fill="#8b5a2b" />
-    <!-- 머리 -->
-    <rect x="10" y="0" width="8" height="4" fill="#e7e7e7" />
+    <!-- B 로고 도트 -->
+    <rect x="52" y="40" width="3" height="14" fill="#8b5a2b" />
+    <rect x="55" y="40" width="6" height="3" fill="#8b5a2b" />
+    <rect x="55" y="46" width="6" height="3" fill="#8b5a2b" />
+    <rect x="55" y="52" width="6" height="3" fill="#8b5a2b" />
   </g>
 
-  <!-- 다이노소어 (사람 오른쪽) -->
-  <!-- 몸통 -->
-  <rect x="170" y="30" width="26" height="16" fill="#2e8b4d" />
-  <!-- 꼬리 -->
-  <rect x="162" y="32" width="8" height="4" fill="#2e8b4d" />
-  <rect x="160" y="34" width="4" height="4" fill="#2e8b4d" />
-  <!-- 머리 -->
-  <rect x="196" y="26" width="12" height="10" fill="#2e8b4d" />
-  <!-- 입 -->
-  <rect x="196" y="34" width="12" height="4" fill="#1d5a31" />
-  <!-- 눈 -->
-  <rect x="199" y="28" width="2" height="2" fill="#e7e7e7" />
-  <rect x="200" y="29" width="1" height="1" fill="#111111" />
-  <!-- 다리 -->
-  <rect x="174" y="44" width="4" height="8" fill="#1d5a31" />
-  <rect x="186" y="44" width="4" height="8" fill="#1d5a31" />
+  <!-- 사람 (마인크래프트 스타일) -->
+  <g class="miner-bounce">
+    <!-- 다리 -->
+    <rect x="120" y="58" width="6" height="12" fill="#2f6fb3" />
+    <rect x="128" y="58" width="6" height="12" fill="#2f6fb3" />
+
+    <!-- 몸통 -->
+    <rect x="118" y="46" width="20" height="12" fill="#1d5a31" />
+
+    <!-- 머리 -->
+    <rect x="121" y="36" width="14" height="10" fill="#f2c9a0" />
+
+    <!-- 눈 -->
+    <rect x="124" y="39" width="2" height="2" fill="#111" />
+    <rect x="130" y="39" width="2" height="2" fill="#111" />
+
+    <!-- 팔 -->
+    <rect x="112" y="46" width="6" height="10" fill="#1d5a31" />
+    <rect x="138" y="46" width="6" height="10" fill="#1d5a31" />
+  </g>
+
+  <!-- 곡갱이 -->
+  <g class="pickaxe-swing" transform="translate(142,40)">
+    <rect x="0" y="4" width="16" height="3" fill="#8b5a2b" />
+    <rect x="12" y="0" width="8" height="4" fill="#e7e7e7" />
+  </g>
+
+  <!-- 다이노소어 (사람 쪽을 바라보는 방향) -->
+  <g class="dino-bob">
+    <!-- 몸통 -->
+    <rect x="200" y="45" width="30" height="16" fill="#2e8b4d" />
+
+    <!-- 꼬리 -->
+    <rect x="230" y="47" width="8" height="4" fill="#2e8b4d" />
+    <rect x="238" y="49" width="4" height="4" fill="#2e8b4d" />
+
+    <!-- 머리 (왼쪽을 바라보게) -->
+    <rect x="188" y="40" width="12" height="10" fill="#2e8b4d" />
+
+    <!-- 입 -->
+    <rect x="188" y="48" width="12" height="4" fill="#1d5a31" />
+
+    <!-- 눈 -->
+    <rect x="196" y="42" width="2" height="2" fill="#e7e7e7" />
+    <rect x="197" y="43" width="1" height="1" fill="#111" />
+
+    <!-- 다리 -->
+    <rect x="205" y="61" width="4" height="8" fill="#1d5a31" />
+    <rect x="217" y="61" width="4" height="8" fill="#1d5a31" />
+  </g>
+
 </svg>
