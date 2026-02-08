@@ -2,13 +2,12 @@
 Version: 1.23
 Date: 2026-02-07
 Updated:
-- Keep "Alerts On" as MASTER toggle (manual)
-- Crossing / Change-from-Base checkboxes remain as rule toggles (they do NOT auto-enable master)
-- Off button turns MASTER off (and stops alerts immediately)
-- Enable highlights only when Notification permission is granted
-- Off highlights only when Alerts are OFF
-- Arm stays neutral (no persistent highlight)
-- Kept all existing features (cents removed, swap, stale, refresh icon, timezones, weather marquee w/ 6-hour cache, TradingView chart TF + hide/show, header SVG animation)
+- Kept v1.22 base structure/features unchanged
+- Simplified Price Alerts UI to a single toggle button:
+  - "Alerts OFF" <-> "Alerts ON" (click toggles)
+  - Turning ON auto-sets Base = current price (replaces Arm)
+  - Removed Enable/Arm/Off buttons and "Alerts On" checkbox
+- Cooldown default set to 1 minute
 Author: lgtaegi
 -->
 
@@ -404,7 +403,7 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
 .a-btn:hover{ background:rgba(255,255,255,0.06); }
 .a-btn:active{ transform:translateY(1px); }
 
-/* bright states used ONLY for Enable(granted) and Off(alerts off) */
+/* toggle states */
 .a-btn.is-on{
   background: rgba(255, 209, 102, 0.18);
   border-color: rgba(255, 209, 102, 0.60);
@@ -412,16 +411,16 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
   box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.10) inset;
 }
 .a-btn.is-off{
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--border);
+  color: var(--muted);
+  box-shadow:none;
+}
+.a-btn.is-warn{
   background: rgba(255, 107, 107, 0.12);
   border-color: rgba(255, 107, 107, 0.55);
   color: var(--bright);
   box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.08) inset;
-}
-.a-btn.is-neutral{
-  background: rgba(255,255,255,0.03);
-  border-color: var(--border);
-  color: var(--muted);
-  box-shadow:none;
 }
 
 .a-row{
@@ -651,17 +650,14 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
           <div class="alert-head">
             <div class="alert-title"><span class="dot"></span> Price Alerts</div>
             <div class="alert-actions">
-              <button id="notifBtn" class="a-btn is-neutral" title="Enable browser notifications">Enable</button>
-              <button id="armBtn" class="a-btn is-neutral" title="Set Base = current price">Arm</button>
-              <button id="disarmBtn" class="a-btn is-neutral" title="Disable alerts">Off</button>
+              <button id="alertsToggleBtn" class="a-btn is-off" title="Toggle alerts ON/OFF">Alerts OFF</button>
             </div>
           </div>
 
           <div class="a-row">
-            <label><input id="alertsEnabled" type="checkbox"> Alerts On</label>
             <label>
               Cooldown (min)
-              <input id="cooldownMin" type="number" min="0" step="1" value="5">
+              <input id="cooldownMin" type="number" min="0" step="1" value="1">
             </label>
             <span class="base-pill">Base: <strong id="basePriceLabel">-</strong></span>
           </div>
@@ -704,8 +700,8 @@ h1{ margin:0; font-size:20px; white-space:nowrap; }
           </div>
 
           <div class="a-muted">
-            Tip: Turn <b>Alerts On</b> to enable evaluation. <b>Crossing</b> and <b>Change from Base</b> are rules that only trigger when Alerts On is enabled.<br/>
-            Tap <b>Arm</b> to set <b>Base = current price</b>. Cooldown prevents rapid repeated alerts.
+            Tip: Turning <b>Alerts ON</b> auto-sets <b>Base = current price</b>. “Change from Base” uses that base for +$ / -$ / +% / -% triggers.<br/>
+            Cooldown prevents rapid repeated alerts (e.g., price hovering near a threshold).
           </div>
         </div>
       </div>
@@ -734,8 +730,8 @@ const FILLER_KO = "오늘도 행복하자";
 const FILLER_EN = "Let’s be happy today.";
 
 /* Alerts */
-const ALARM_KEY = "btcAlerts_v123";
-const ALERTS_HIDDEN_KEY = "btcAlertsHidden_v123";
+const ALARM_KEY = "btcAlerts_v122";            // keep existing storage for continuity
+const ALERTS_HIDDEN_KEY = "btcAlertsHidden_v122";
 
 /* ---------- STATE ---------- */
 let isPricePrimary = true;
@@ -752,7 +748,7 @@ let alertPulseUntil = 0;
 
 let alerts = {
   enabled: false,
-  cooldownMin: 5,
+  cooldownMin: 1,
 
   basePrice: null,
 
@@ -897,7 +893,7 @@ function loadAlerts(){
     if(!raw) return;
     const obj = JSON.parse(raw);
     alerts = { ...alerts, ...obj };
-    alerts.cooldownMin = Number.isFinite(Number(alerts.cooldownMin)) ? Number(alerts.cooldownMin) : 5;
+    alerts.cooldownMin = Number.isFinite(Number(alerts.cooldownMin)) ? Number(alerts.cooldownMin) : 1;
     alerts.crossMode = (alerts.crossMode === "below" || alerts.crossMode === "both") ? alerts.crossMode : "above";
   }catch(_){}
 }
@@ -909,35 +905,41 @@ function updateBaseLabel(){
   basePriceLabel.textContent = (alerts.basePrice && Number.isFinite(alerts.basePrice)) ? fmtUSD0(alerts.basePrice) : "-";
 }
 
-/* ✅ button highlight rules */
+/* ✅ NEW: single toggle button UI */
 function refreshAlertButtonsUI(){
-  [notifBtn, armBtn, disarmBtn].forEach(b=>{
-    b.classList.remove("is-on","is-off","is-neutral");
-    b.classList.add("is-neutral");
-  });
+  alertsToggleBtn.classList.remove("is-on","is-off","is-warn");
 
-  // Enable: highlight ONLY when permission granted
   if(!canNotify()){
-    notifBtn.textContent = "No Notify";
-    notifBtn.disabled = true;
-  } else {
-    notifBtn.disabled = false;
-    const p = Notification.permission;
-    notifBtn.textContent = (p === "granted") ? "Enabled" : (p === "denied" ? "Blocked" : "Enable");
-    if(p === "granted") notifBtn.classList.add("is-on");
+    alerts.enabled = false;
+    alertsToggleBtn.textContent = "No Notify";
+    alertsToggleBtn.classList.add("is-warn");
+    alertsToggleBtn.disabled = true;
+    saveAlerts();
+    return;
   }
 
-  // Arm: always neutral
-  armBtn.classList.add("is-neutral");
+  alertsToggleBtn.disabled = false;
 
-  // Off: highlight ONLY when Alerts are OFF (master)
-  if(!alerts.enabled) disarmBtn.classList.add("is-off");
-  else disarmBtn.classList.add("is-neutral");
+  const p = Notification.permission;
+  if(p === "denied"){
+    alerts.enabled = false;
+    alertsToggleBtn.textContent = "Blocked";
+    alertsToggleBtn.classList.add("is-warn");
+    saveAlerts();
+    return;
+  }
+
+  if(alerts.enabled){
+    alertsToggleBtn.textContent = "Alerts ON";
+    alertsToggleBtn.classList.add("is-on");
+  } else {
+    alertsToggleBtn.textContent = "Alerts OFF";
+    alertsToggleBtn.classList.add("is-off");
+  }
 }
 
 function syncAlertsUI(){
-  alertsEnabled.checked = !!alerts.enabled;
-  cooldownMin.value = String(alerts.cooldownMin ?? 5);
+  cooldownMin.value = String(alerts.cooldownMin ?? 1);
 
   crossEnabled.checked = !!alerts.crossEnabled;
   crossTarget.value = (Number.isFinite(alerts.crossTarget) ? String(Math.round(alerts.crossTarget)) : "");
@@ -955,7 +957,6 @@ function syncAlertsUI(){
 }
 
 function readAlertsFromUI(){
-  alerts.enabled = alertsEnabled.checked;
   alerts.cooldownMin = Math.max(0, Number(cooldownMin.value || 0));
 
   alerts.crossEnabled = crossEnabled.checked;
@@ -984,7 +985,7 @@ function readAlertsFromUI(){
 }
 
 [
-  alertsEnabled, cooldownMin,
+  cooldownMin,
   crossEnabled, crossTarget, crossMode, crossOneShot,
   deltaEnabled, upUsd, downUsd, upPct, downPct
 ].forEach(el => {
@@ -992,45 +993,61 @@ function readAlertsFromUI(){
   el.addEventListener("input", readAlertsFromUI);
 });
 
-notifBtn.addEventListener("click", async ()=>{
+/* ✅ toggle behavior:
+   - click OFF -> ON:
+     * if permission default => request
+     * if denied => show Blocked, stay OFF
+     * if granted => ON + base=current price (if available)
+   - click ON -> OFF: just disable
+*/
+alertsToggleBtn.addEventListener("click", async ()=>{
   primeAudio();
+
   if(!canNotify()) return;
-  try{
-    const p = await Notification.requestPermission();
+
+  // turning ON attempt
+  if(!alerts.enabled){
+    if(Notification.permission === "default"){
+      try{ await Notification.requestPermission(); }catch(_){}
+    }
+    if(Notification.permission === "denied"){
+      alerts.enabled = false;
+      saveAlerts();
+      syncAlertsUI();
+      showToast("Notifications blocked in browser settings.");
+      return;
+    }
+
+    // now granted (or at least not denied)
+    alerts.enabled = true;
+
+    // auto-base to current price if available
+    if(Number.isFinite(latestAmountNum)){
+      alerts.basePrice = latestAmountNum;
+
+      alerts.firedUpUsd = false;
+      alerts.firedDownUsd = false;
+      alerts.firedUpPct = false;
+      alerts.firedDownPct = false;
+
+      alerts.crossFiredAbove = false;
+      alerts.crossFiredBelow = false;
+
+      showToast("Alerts ON. Base set: " + fmtUSD0(alerts.basePrice));
+    } else {
+      showToast("Alerts ON. Base will set when price arrives.");
+    }
+
     saveAlerts();
     syncAlertsUI();
-    if(p === "granted") showToast("Notifications enabled.");
-    if(p === "denied") showToast("Notifications blocked in browser settings.");
-  }catch(_){}
-});
-
-armBtn.addEventListener("click", ()=>{
-  primeAudio();
-  if(Number.isFinite(latestAmountNum)){
-    alerts.basePrice = latestAmountNum;
-
-    alerts.firedUpUsd = false;
-    alerts.firedDownUsd = false;
-    alerts.firedUpPct = false;
-    alerts.firedDownPct = false;
-
-    alerts.crossFiredAbove = false;
-    alerts.crossFiredBelow = false;
-
-    saveAlerts();
-    updateBaseLabel();
-    refreshAlertButtonsUI();
-    showToast("Base set: " + fmtUSD0(alerts.basePrice));
-  } else {
-    showToast("Base not set (price not available yet).");
+    return;
   }
-});
 
-disarmBtn.addEventListener("click", ()=>{
-  alerts.enabled = false;         // MASTER OFF only
+  // turning OFF
+  alerts.enabled = false;
   saveAlerts();
   syncAlertsUI();
-  showToast("Alerts off.");
+  showToast("Alerts OFF.");
 });
 
 function cooldownMs(){ return Math.max(0, alerts.cooldownMin || 0) * 60 * 1000; }
@@ -1089,6 +1106,14 @@ function evalCrossing(curr){
 function evalDeltaFromBase(curr){
   if(!alerts.deltaEnabled) return;
   if(!Number.isFinite(curr)) return;
+
+  // if ON and base missing, set base automatically when price is available
+  if(alerts.enabled && !Number.isFinite(alerts.basePrice)){
+    alerts.basePrice = curr;
+    updateBaseLabel();
+    saveAlerts();
+  }
+
   const base = alerts.basePrice;
   if(!Number.isFinite(base)) return;
 
@@ -1135,7 +1160,7 @@ function evalDeltaFromBase(curr){
 }
 
 function evalAlerts(){
-  if(!alerts.enabled) return; // MASTER gate
+  if(!alerts.enabled) return;
   evalCrossing(latestAmountNum);
   evalDeltaFromBase(latestAmountNum);
 }
@@ -1333,16 +1358,26 @@ async function fetchPrice(){
     latestPrice = fmtUSD0(latestAmountNum);
 
     lastGoodPriceUpdate = Date.now();
-    updated.textContent = "Updated: " + fmtTime("America/Denver");
+    updated.textContent = "Updated: " + fmtTime("America/Denver"); // no (MT)
     error.textContent = "";
+
+    // If alerts ON and base not set yet, set base on first good price
+    if(alerts.enabled && !Number.isFinite(alerts.basePrice) && Number.isFinite(latestAmountNum)){
+      alerts.basePrice = latestAmountNum;
+      saveAlerts();
+      updateBaseLabel();
+    }
 
     renderDisplays();
     updateStaleUI();
 
+    // crossing needs the previous sample
     prevAmountNum = Number.isFinite(old) ? old : prevAmountNum;
 
+    // alerts evaluation
     evalAlerts();
 
+    // update prev for next tick (after eval)
     prevAmountNum = latestAmountNum;
 
   }catch(e){
@@ -1460,15 +1495,6 @@ refreshBtn.addEventListener("click", ()=>{
   fetchPrice();
   ensureWeather();
 });
-
-/* alerts panel toggle */
-function setAlertsHidden(next){
-  alertsHidden = !!next;
-  localStorage.setItem(ALERTS_HIDDEN_KEY, alertsHidden ? "1" : "0");
-  rightPane.classList.toggle("alerts-hidden", alertsHidden);
-  toggleAlertsBtn.textContent = alertsHidden ? "Show alerts" : "Hide alerts";
-}
-toggleAlertsBtn.addEventListener("click", ()=> setAlertsHidden(!alertsHidden));
 
 /* ---------- START ---------- */
 function start(){
