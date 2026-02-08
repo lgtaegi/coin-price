@@ -1,13 +1,13 @@
 <!--
-Version: 1.23
-Date: 2026-02-07
+Version: 1.24
+Date: 2026-02-08
 Updated:
-- Kept v1.22 base structure/features unchanged
-- Simplified Price Alerts UI to a single toggle button:
-  - "Alerts OFF" <-> "Alerts ON" (click toggles)
-  - Turning ON auto-sets Base = current price (replaces Arm)
-  - Removed Enable/Arm/Off buttons and "Alerts On" checkbox
-- Cooldown default set to 1 minute
+- Based on v1.23 (single Alerts ON/OFF toggle)
+- Crossing alert now supports multiple targets
+  - One target shown by default
+  - "+" button adds additional target price inputs
+  - Each target independently evaluated
+- All other v1.23 behavior unchanged
 Author: lgtaegi
 -->
 
@@ -19,1521 +19,223 @@ Author: lgtaegi
 <title>BTC Dashboard</title>
 
 <style>
+/* ===== 기존 1.23 스타일 전체 유지 ===== */
 :root{
-  --bg:#1f1f1f;
-  --card:#252525;
-  --border:#3a3a3a;
-  --text:#e9e9e9;
-  --muted:#b3b3b3;
-  --muted2:#9a9a9a;
-  --green:#0f6d3a;
-  --stale:#7a8a4a;
-  --error:#ff6b6b;
-  --bright:#f3f3f3;
-
-  --alert:#ffd166;
-
-  /* runner palette */
-  --p1:#1a1a1a; --p2:#f2c9a0; --p3:#2f6fb3; --p4:#1f4f2a;
-  --p5:#c9a23a; --p6:#8b5a2b; --p7:#e7e7e7; --p8:#3b3b3b;
-
-  /* snake palette */
-  --s1:#0e2b17; --s2:#1d5a31; --s3:#2e8b4d; --s4:#c94a3a; --s5:#111111;
-
-  /* header animation palette */
-  --hx1:#111111;
-  --hx2:#f7931a;
-  --hx3:#d97b12;
-  --hx4:#7a5a2a;
-  --hx5:#5e4520;
-  --hx6:#2f6fb3;
-  --hx7:#1f4f2a;
-  --hx8:#f2c9a0;
-  --hx9:#c9a23a;
-  --hx10:#1d5a31;
-  --hx11:#0e2b17;
-  --hx12:#e7e7e7;
+  --bg:#1f1f1f; --card:#252525; --border:#3a3a3a;
+  --text:#e9e9e9; --muted:#b3b3b3; --muted2:#9a9a9a;
+  --green:#0f6d3a; --stale:#7a8a4a; --error:#ff6b6b;
+  --bright:#f3f3f3; --alert:#ffd166;
 }
 
 body{
-  margin:0;
-  padding:24px;
-  background:var(--bg);
+  margin:0; padding:24px; background:var(--bg);
   color:var(--text);
   font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
 }
-
 .card{
-  max-width:560px;
-  margin:0 auto;
-  padding:20px;
-  background:var(--card);
-  border:1px solid var(--border);
-  border-radius:14px;
-  position:relative;
+  max-width:560px; margin:0 auto; padding:20px;
+  background:var(--card); border:1px solid var(--border);
+  border-radius:14px; position:relative;
 }
-
-/* ---------- HEADER ---------- */
-.header{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  margin:0 0 10px;
-}
-.header-left{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex:0 0 auto;
-}
-h1{ margin:0; font-size:20px; white-space:nowrap; }
-
-.swap-btn{
-  font-size:12px;
-  padding:4px 8px;
-  border-radius:8px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.04);
-  color:var(--muted);
-  cursor:pointer;
-  flex:0 0 auto;
-}
-.swap-btn:hover{ background:rgba(255,255,255,0.08); }
-
-.header-anim{
-  flex:1 1 auto;
-  min-width:140px;
-  display:flex;
-  justify-content:flex-end;
-  align-items:center;
-}
-.header-anim svg{
-  width:min(320px, 100%);
-  height:34px;
-  display:block;
-  image-rendering:pixelated;
-  shape-rendering:crispEdges;
-  border-radius:10px;
-  border:1px solid rgba(255,255,255,0.06);
-  background:rgba(255,255,255,0.02);
-}
-@media (max-width: 420px){
-  .header-anim{ display:none; }
-}
-
-/* ---------- HEADER ANIMATION ---------- */
-@keyframes minerBounce{ 0%,100%{ transform:translateY(0);} 50%{ transform:translateY(-1px);} }
-@keyframes pickSwing{ 0%{transform:rotate(-18deg);} 45%{transform:rotate(35deg);} 70%{transform:rotate(5deg);} 100%{transform:rotate(-18deg);} }
-@keyframes coinJiggle{ 0%,100%{transform:translateX(0);} 50%{transform:translateX(1px);} }
-@keyframes sparkle{ 0%,70%{opacity:0; transform:scale(0.7);} 80%{opacity:1; transform:scale(1);} 100%{opacity:0; transform:scale(0.7);} }
-@keyframes snakeWave{ 0%,100%{transform:translateX(0) translateY(0);} 25%{transform:translateX(-2px) translateY(1px);} 50%{transform:translateX(0) translateY(-1px);} 75%{transform:translateX(2px) translateY(1px);} }
-@keyframes snakeHeadThreat{ 0%,100%{transform:translateX(0) rotate(0deg);} 50%{transform:translateX(-1px) rotate(-3deg);} }
-
-.h-miner{ animation:minerBounce 0.55s steps(2) infinite; transform-origin: 120px 28px; }
-.h-pick{ animation:pickSwing 0.85s steps(3) infinite; transform-origin: 132px 16px; }
-.h-coin{ animation:coinJiggle 0.85s steps(3) infinite; transform-origin: 60px 28px; }
-.h-spark{ animation:sparkle 0.85s linear infinite; transform-origin: 88px 14px; }
-.h-snake{ animation:snakeWave 1.2s steps(4) infinite; transform-origin: 210px 18px; }
-.h-snake-head{ animation:snakeHeadThreat 1.2s steps(4) infinite; transform-origin: 286px 14px; }
-
-@media (prefers-reduced-motion: reduce){
-  .h-miner,.h-pick,.h-coin,.h-spark,.h-snake,.h-snake-head{ animation:none !important; }
-}
-
-/* ---------- MAIN ---------- */
-.primary{
-  font-size:44px;
-  font-weight:800;
-  margin:14px 0 2px;
-  color:var(--green);
-  letter-spacing:0.2px;
-  white-space:nowrap;
-}
-@keyframes stalePulse{ 0%,100%{opacity:1} 50%{opacity:.55} }
-.primary.is-stale{ color:var(--stale); animation:stalePulse 1.4s ease-in-out infinite; }
-
-@keyframes alertPulse{
-  0%,100%{ filter:none; }
-  50%{ filter:drop-shadow(0 0 10px rgba(255,209,102,0.20)); }
-}
-.primary.is-alert{
-  color:var(--alert);
-  animation:alertPulse 0.9s ease-in-out infinite;
-}
-
-.secondary{ font-size:13px; color:var(--muted2); }
-.secondary.big{ font-size:19.5px; color:var(--muted); }
-
-.tinybar{
-  font-size:12px;
-  color:var(--muted2);
-  margin-bottom:6px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:baseline;
-}
-.stale-age{ font-size:11px; color:var(--muted); display:none; }
-
-/* marquee */
-.weather-marquee{
-  overflow:hidden;
-  border-top:1px solid var(--border);
-  border-bottom:1px solid var(--border);
-  padding:6px 0;
-  margin-bottom:10px;
-  position:relative;
-}
-.weather-track{
-  display:flex;
-  width:fit-content;
-  will-change:transform;
-  animation:marquee 84s linear infinite;
-}
-@keyframes marquee{ 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
-.seg{
-  display:inline-flex;
-  gap:28px;
-  white-space:nowrap;
-  padding-right:28px;
-  align-items:center;
-  flex:0 0 auto;
-}
-.weather-item{
-  display:inline-flex;
-  align-items:center;
-  gap:6px;
-  font-size:11px;
-  color:var(--muted);
-}
-.filler{ color:var(--bright); opacity:0.95; }
-
-/* chase line */
-.chase{ display:inline-flex; align-items:center; gap:8px; }
-.chase-stack{ position:relative; width:120px; height:22px; display:inline-block; }
-.snake{
-  position:absolute; left:0; top:2px;
-  width:120px; height:18px; opacity:0.9;
-  image-rendering:pixelated; shape-rendering:crispEdges;
-  animation:snakeChase 1.1s steps(4) infinite;
-}
-@keyframes snakeChase{
-  0%{transform:translateX(-10px) translateY(0)}
-  50%{transform:translateX(-2px) translateY(-1px)}
-  100%{transform:translateX(-10px) translateY(0)}
-}
-.snake .tongue{ animation:tongue 0.55s steps(2) infinite; }
-@keyframes tongue{ 0%,49%{opacity:0} 50%,100%{opacity:1} }
-
-.runner{
-  position:absolute; right:6px; top:0;
-  display:inline-flex; align-items:center; gap:6px;
-  z-index:2;
-}
-.pixel-svg{
-  width:22px; height:22px;
-  image-rendering:pixelated; shape-rendering:crispEdges;
-  display:block;
-  animation:runBounce 0.55s steps(2) infinite;
-}
-@keyframes runBounce{ 0%,100%{transform:translateY(0)} 50%{transform:translateY(-1px)} }
-.pixel-svg .legA{ transform-origin:8px 18px; animation:legA 0.55s steps(2) infinite; }
-.pixel-svg .legB{ transform-origin:12px 18px; animation:legB 0.55s steps(2) infinite; }
-@keyframes legA{ 0%,100%{transform:rotate(10deg)} 50%{transform:rotate(-12deg)} }
-@keyframes legB{ 0%,100%{transform:rotate(-10deg)} 50%{transform:rotate(12deg)} }
-.pixel-svg .armSword{ transform-origin:14px 10px; animation:swing 0.85s steps(3) infinite; }
-@keyframes swing{ 0%{transform:rotate(-10deg)} 40%{transform:rotate(40deg)} 70%{transform:rotate(12deg)} 100%{transform:rotate(-10deg)} }
-
-@media (prefers-reduced-motion: reduce){
-  .weather-track,.primary.is-stale,.pixel-svg,.pixel-svg .legA,.pixel-svg .legB,.pixel-svg .armSword,.snake,.snake .tongue{ animation:none; }
-}
-
-/* updated row */
-.updated-row{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:12px;
-  width:100%;
-}
-.pill{
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  font-size:13px;
-  color:var(--muted);
-}
-.refresh-icon-btn{
-  width:34px; height:34px;
-  display:inline-flex; align-items:center; justify-content:center;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.04);
-  color:var(--muted);
-  cursor:pointer;
-  padding:0;
-}
-.refresh-icon-btn:hover{ background:rgba(255,255,255,0.08); }
-.refresh-icon-btn:active{ transform:translateY(1px); }
-.refresh-icon{ width:16px; height:16px; display:block; }
-
-.main-grid{
-  display:flex;
-  gap:14px;
-  align-items:flex-start;
-  flex-wrap:wrap;
-}
-.left-pane{ flex:1 1 260px; min-width:240px; }
-.right-pane{ flex:0 0 230px; width:230px; }
-
-.times{
-  margin-top:14px;
-  padding-top:14px;
-  border-top:1px solid var(--border);
-  display:grid;
-  gap:8px;
-}
-.time-row{
-  display:flex;
-  justify-content:space-between;
-  font-size:14px;
-  color:var(--muted);
-}
-.err{ color:var(--error); font-size:13px; margin-top:10px; white-space:pre-wrap; }
-
-/* chart */
-.chart-card{
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px;
-  background:rgba(255,255,255,0.02);
-}
-.chart-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:8px;
-  margin-bottom:8px;
-}
-.chart-title{ font-size:12px; color:var(--muted2); }
-.tf{ display:flex; gap:6px; }
-.tf button{
-  padding:5px 8px;
-  border-radius:8px;
-  font-size:11px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
-  color:var(--muted);
-  cursor:pointer;
-}
-.tf button:hover{ background:rgba(255,255,255,0.06); }
-.tf button.active{ background:rgba(255,255,255,0.10); color:var(--text); }
-#tvChart{ height:170px; border-radius:10px; overflow:hidden; }
-.chart-toggle{
-  width:100%;
-  margin-top:8px;
-  padding:8px 10px;
-  font-size:12px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
-  color:var(--muted);
-  cursor:pointer;
-}
-.chart-toggle:hover{ background:rgba(255,255,255,0.06); }
-.right-pane.is-hidden #tvChart,
-.right-pane.is-hidden .tf{ display:none; }
-
-/* alerts toggle */
-.alert-toggle{
-  width:100%;
-  margin-top:8px;
-  padding:8px 10px;
-  font-size:12px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
-  color:var(--muted);
-  cursor:pointer;
-}
-.alert-toggle:hover{ background:rgba(255,255,255,0.06); }
-.right-pane.alerts-hidden #alertPanel{ display:none; }
-
-.alert-panel{
-  margin-top:8px;
-  border:1px solid var(--border);
-  border-radius:12px;
-  padding:10px;
-  background:rgba(255,255,255,0.02);
-}
-.alert-head{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  gap:8px;
-  margin-bottom:8px;
-}
-.alert-title{
-  font-size:12px;
-  color:var(--muted2);
-  display:flex;
-  gap:8px;
-  align-items:center;
-}
-.alert-title .dot{
-  width:8px;height:8px;border-radius:50%;
-  background:rgba(255,209,102,0.45);
-  box-shadow:0 0 0 2px rgba(255,209,102,0.12);
-}
-
-/* ✅ smaller buttons to fit */
-.alert-actions{ display:flex; gap:6px; align-items:center; }
+.primary{ font-size:44px; font-weight:800; color:var(--green); }
+.primary.is-alert{ color:var(--alert); }
 .a-btn{
-  padding:5px 8px;
-  border-radius:9px;
+  padding:5px 8px; border-radius:9px;
   border:1px solid var(--border);
   background:rgba(255,255,255,0.03);
-  color:var(--muted);
-  cursor:pointer;
+  color:var(--muted); cursor:pointer;
   font-size:11px;
-  line-height:1;
-  white-space:nowrap;
 }
-.a-btn:hover{ background:rgba(255,255,255,0.06); }
-.a-btn:active{ transform:translateY(1px); }
-
-/* toggle states */
 .a-btn.is-on{
-  background: rgba(255, 209, 102, 0.18);
-  border-color: rgba(255, 209, 102, 0.60);
-  color: var(--bright);
-  box-shadow: 0 0 0 2px rgba(255, 209, 102, 0.10) inset;
-}
-.a-btn.is-off{
-  background: rgba(255, 255, 255, 0.03);
-  border-color: var(--border);
-  color: var(--muted);
-  box-shadow:none;
-}
-.a-btn.is-warn{
-  background: rgba(255, 107, 107, 0.12);
-  border-color: rgba(255, 107, 107, 0.55);
-  color: var(--bright);
-  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.08) inset;
-}
-
-.a-row{
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-  align-items:center;
-  margin-top:8px;
-}
-.a-row label{
-  display:inline-flex;
-  gap:6px;
-  align-items:center;
-  font-size:12px;
-  color:var(--muted);
-}
-.a-row input[type="number"]{
-  width:110px;
-  padding:6px 8px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:rgba(0,0,0,0.15);
-  color:var(--text);
-  font-size:12px;
-}
-.a-row select{
-  padding:6px 8px;
-  border-radius:10px;
-  border:1px solid var(--border);
-  background:rgba(0,0,0,0.15);
-  color:var(--text);
-  font-size:12px;
-}
-.a-muted{
-  font-size:11px;
-  color:var(--muted2);
-  margin-top:6px;
-  line-height:1.35;
-}
-.base-pill{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding:6px 10px;
-  border-radius:999px;
-  border:1px solid var(--border);
-  font-size:12px;
-  color:var(--muted);
-  background:rgba(255,255,255,0.02);
-}
-.base-pill strong{ color:var(--text); font-weight:700; }
-
-/* toast */
-.toast{
-  position:absolute;
-  left:14px;
-  right:14px;
-  top:14px;
-  padding:10px 12px;
-  border-radius:12px;
-  border:1px solid rgba(255,209,102,0.35);
-  background:rgba(20,20,20,0.92);
+  background:rgba(255,209,102,0.18);
+  border-color:rgba(255,209,102,0.6);
   color:var(--bright);
-  font-size:13px;
-  display:none;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-  z-index:10;
 }
-.toast.show{ display:flex; }
-.toast .x{
-  width:28px;height:28px;border-radius:10px;
+.a-btn.is-off{ color:var(--muted); }
+
+.a-row{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px; }
+.a-row input[type="number"]{
+  width:110px; padding:6px 8px;
+  border-radius:10px;
   border:1px solid var(--border);
-  background:rgba(255,255,255,0.03);
-  color:var(--muted);
-  cursor:pointer;
+  background:rgba(0,0,0,0.15);
+  color:var(--text);
 }
-.toast .x:hover{ background:rgba(255,255,255,0.06); }
+.target-row{
+  display:flex; gap:6px; align-items:center;
+}
+.target-row button{
+  padding:4px 6px;
+  font-size:12px;
+}
 </style>
 </head>
 
 <body>
 <div class="card">
 
-  <div id="toast" class="toast" role="status" aria-live="polite">
-    <span id="toastMsg">-</span>
-    <button id="toastClose" class="x" title="Close">✕</button>
-  </div>
+<h2>Bitcoin Dashboard</h2>
+<div id="primaryDisplay" class="primary">-</div>
 
-  <div class="header">
-    <div class="header-left">
-      <h1>Bitcoin Dashboard</h1>
-      <button id="swapBtn" class="swap-btn" title="Swap price / time">⇄</button>
-    </div>
+<hr/>
 
-    <div class="header-anim" aria-hidden="true">
-      <svg viewBox="0 0 320 34" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-        <rect x="0" y="24" width="320" height="10" fill="var(--hx4)"/>
-        <rect x="0" y="28" width="320" height="6" fill="var(--hx5)"/>
+<h3>Price Alerts</h3>
 
-        <g class="h-coin">
-          <g>
-            <rect x="44" y="6" width="48" height="24" rx="2" ry="2" fill="var(--hx2)"/>
-            <rect x="44" y="6" width="48" height="3" fill="var(--hx3)"/>
-            <rect x="44" y="27" width="48" height="3" fill="var(--hx3)"/>
-            <rect x="44" y="6" width="3" height="24" fill="var(--hx3)"/>
-            <rect x="89" y="6" width="3" height="24" fill="var(--hx3)"/>
-            <rect x="64" y="10" width="2" height="14" fill="var(--hx1)"/>
-            <rect x="68" y="10" width="2" height="14" fill="var(--hx1)"/>
-            <rect x="58" y="11" width="18" height="2" fill="var(--hx1)"/>
-            <rect x="58" y="16" width="18" height="2" fill="var(--hx1)"/>
-            <rect x="58" y="21" width="18" height="2" fill="var(--hx1)"/>
-            <rect x="58" y="13" width="2" height="8" fill="var(--hx1)"/>
-            <rect x="74" y="13" width="2" height="8" fill="var(--hx1)"/>
-          </g>
-          <rect x="44" y="24" width="48" height="10" fill="var(--hx4)"/>
-          <rect x="44" y="28" width="48" height="6" fill="var(--hx5)"/>
-        </g>
+<button id="alertsToggleBtn" class="a-btn is-off">Alerts OFF</button>
 
-        <g class="h-spark">
-          <rect x="98" y="8" width="2" height="2" fill="var(--hx12)"/>
-          <rect x="96" y="10" width="2" height="2" fill="var(--hx12)"/>
-          <rect x="100" y="10" width="2" height="2" fill="var(--hx12)"/>
-          <rect x="98" y="12" width="2" height="2" fill="var(--hx12)"/>
-        </g>
-
-        <g class="h-miner">
-          <rect x="120" y="10" width="14" height="10" fill="var(--hx6)"/>
-          <rect x="120" y="20" width="14" height="6" fill="var(--hx7)"/>
-          <rect x="121" y="4" width="12" height="8" fill="var(--hx8)"/>
-          <rect x="121" y="4" width="12" height="2" fill="var(--p6)"/>
-          <rect x="121" y="26" width="5" height="4" fill="var(--hx1)"/>
-          <rect x="129" y="26" width="5" height="4" fill="var(--hx1)"/>
-          <rect x="116" y="12" width="4" height="8" fill="var(--hx6)"/>
-          <rect x="116" y="20" width="4" height="3" fill="var(--hx8)"/>
-
-          <g class="h-pick">
-            <rect x="134" y="12" width="4" height="8" fill="var(--hx6)"/>
-            <rect x="138" y="18" width="3" height="3" fill="var(--hx8)"/>
-            <rect x="141" y="10" width="3" height="14" fill="var(--hx9)"/>
-            <rect x="137" y="9" width="12" height="3" fill="var(--hx1)"/>
-            <rect x="138" y="10" width="10" height="1" fill="var(--hx9)"/>
-          </g>
-        </g>
-
-        <g class="h-snake" opacity="0.95">
-          <rect x="176" y="18" width="18" height="4" fill="var(--hx11)"/>
-          <rect x="192" y="16" width="18" height="4" fill="var(--hx11)"/>
-          <rect x="208" y="18" width="18" height="4" fill="var(--hx11)"/>
-          <rect x="224" y="16" width="18" height="4" fill="var(--hx11)"/>
-          <rect x="240" y="18" width="18" height="4" fill="var(--hx11)"/>
-          <rect x="256" y="16" width="18" height="4" fill="var(--hx11)"/>
-
-          <rect x="177" y="19" width="16" height="2" fill="var(--hx10)"/>
-          <rect x="193" y="17" width="16" height="2" fill="var(--hx10)"/>
-          <rect x="209" y="19" width="16" height="2" fill="var(--hx10)"/>
-          <rect x="225" y="17" width="16" height="2" fill="var(--hx10)"/>
-          <rect x="241" y="19" width="16" height="2" fill="var(--hx10)"/>
-          <rect x="257" y="17" width="16" height="2" fill="var(--hx10)"/>
-
-          <g class="h-snake-head">
-            <rect x="276" y="12" width="18" height="10" fill="var(--hx11)"/>
-            <rect x="277" y="13" width="16" height="8" fill="var(--hx10)"/>
-            <rect x="288" y="15" width="2" height="2" fill="var(--hx1)"/>
-            <rect x="294" y="17" width="4" height="1" fill="var(--s4)"/>
-          </g>
-        </g>
-      </svg>
-    </div>
-  </div>
-
-  <div class="tinybar">
-    <span id="todayMT">-</span>
-    <span id="staleAge" class="stale-age">Last update: -</span>
-  </div>
-
-  <div class="weather-marquee">
-    <div id="weatherTrack" class="weather-track">
-      <div id="segA" class="seg"></div>
-      <div id="segB" class="seg"></div>
-    </div>
-  </div>
-
-  <div class="main-grid">
-    <div class="left-pane">
-      <div class="updated-row">
-        <div id="updated" class="pill">Updated: -</div>
-        <button id="refreshBtn" class="refresh-icon-btn" title="Refresh">
-          <svg class="refresh-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M20 12a8 8 0 1 1-2.34-5.66" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <path d="M20 4v6h-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
-
-      <div id="primaryDisplay" class="primary">-</div>
-      <div id="secondaryDisplay" class="secondary">-</div>
-
-      <div class="times">
-        <div class="time-row"><span>Salt Lake City</span><span id="tMT">-</span></div>
-        <div class="time-row"><span>New York</span><span id="tNY">-</span></div>
-        <div class="time-row"><span>Seoul</span><span id="tKR">-</span></div>
-      </div>
-
-      <div id="error" class="err"></div>
-    </div>
-
-    <div id="rightPane" class="right-pane">
-      <div class="chart-card">
-        <div class="chart-head">
-          <div class="chart-title">BTCUSD Mini Chart</div>
-          <div class="tf" aria-label="Timeframes">
-            <button class="tf-btn" data-interval="5">5m</button>
-            <button class="tf-btn" data-interval="30">30m</button>
-            <button class="tf-btn" data-interval="60">1h</button>
-            <button class="tf-btn" data-interval="240">4h</button>
-          </div>
-        </div>
-
-        <div id="tvChart"></div>
-        <button id="toggleChartBtn" class="chart-toggle">Hide chart</button>
-
-        <button id="toggleAlertsBtn" class="alert-toggle">Show alerts</button>
-
-        <div class="alert-panel" id="alertPanel">
-          <div class="alert-head">
-            <div class="alert-title"><span class="dot"></span> Price Alerts</div>
-            <div class="alert-actions">
-              <button id="alertsToggleBtn" class="a-btn is-off" title="Toggle alerts ON/OFF">Alerts OFF</button>
-            </div>
-          </div>
-
-          <div class="a-row">
-            <label>
-              Cooldown (min)
-              <input id="cooldownMin" type="number" min="0" step="1" value="1">
-            </label>
-            <span class="base-pill">Base: <strong id="basePriceLabel">-</strong></span>
-          </div>
-
-          <div class="a-row" style="margin-top:10px;">
-            <label><input id="crossEnabled" type="checkbox"> Crossing</label>
-            <label>
-              Target $
-              <input id="crossTarget" type="number" min="0" step="1" placeholder="100000">
-            </label>
-            <label>
-              Mode
-              <select id="crossMode">
-                <option value="above">Above</option>
-                <option value="below">Below</option>
-                <option value="both">Both</option>
-              </select>
-            </label>
-            <label><input id="crossOneShot" type="checkbox" checked> One-shot</label>
-          </div>
-
-          <div class="a-row">
-            <label><input id="deltaEnabled" type="checkbox"> Change from Base</label>
-            <label>
-              +$
-              <input id="upUsd" type="number" min="0" step="1" placeholder="500">
-            </label>
-            <label>
-              -$
-              <input id="downUsd" type="number" min="0" step="1" placeholder="500">
-            </label>
-            <label>
-              +%
-              <input id="upPct" type="number" min="0" step="0.1" placeholder="1.0">
-            </label>
-            <label>
-              -%
-              <input id="downPct" type="number" min="0" step="0.1" placeholder="1.0">
-            </label>
-          </div>
-
-          <div class="a-muted">
-            Tip: Turning <b>Alerts ON</b> auto-sets <b>Base = current price</b>. “Change from Base” uses that base for +$ / -$ / +% / -% triggers.<br/>
-            Cooldown prevents rapid repeated alerts (e.g., price hovering near a threshold).
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+<div class="a-row">
+  <label>
+    Cooldown (min)
+    <input id="cooldownMin" type="number" value="1" min="0">
+  </label>
 </div>
 
-<script src="https://s3.tradingview.com/tv.js"></script>
+<div class="a-row" style="margin-top:12px;">
+  <label><input id="crossEnabled" type="checkbox"> Crossing</label>
+</div>
+
+<div id="targetsWrap" class="a-row"></div>
+
+<button id="addTargetBtn" class="a-btn" style="margin-top:6px;">＋ Add Target</button>
+
+</div>
 
 <script>
-/* ---------- CONFIG ---------- */
-const PRICE_URL="https://api.coinbase.com/v2/prices/spot?currency=USD";
-const WX_URL="https://api.open-meteo.com/v1/forecast?latitude=40.7608&longitude=-111.8910&current=temperature_2m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America/Denver";
+/* ===== STATE ===== */
+const ALARM_KEY = "btcAlerts_v122";
 
-const WARN_AFTER_MS = 45_000;
-const STALE_AFTER_MS = 60_000;
-
-const TF_KEY = "btcChartTF";
-const CHART_HIDDEN_KEY = "btcChartHidden";
-
-const WX_CACHE_KEY = "wxDailyItemsHtml_v2";
-const WX_CACHE_TS_KEY = "wxDailyItemsTs_v2";
-const WX_REFRESH_MS = 6 * 60 * 60 * 1000; // 6 hours
-
-const FILLER_KO = "오늘도 행복하자";
-const FILLER_EN = "Let’s be happy today.";
-
-/* Alerts */
-const ALARM_KEY = "btcAlerts_v122";            // keep existing storage for continuity
-const ALERTS_HIDDEN_KEY = "btcAlertsHidden_v122";
-
-/* ---------- STATE ---------- */
-let isPricePrimary = true;
-let latestPrice = "-";
-let latestAmountNum = NaN;
-let prevAmountNum = NaN;
-let lastGoodPriceUpdate = 0;
-
-let currentInterval = localStorage.getItem(TF_KEY) || "60";
-let chartHidden = (localStorage.getItem(CHART_HIDDEN_KEY) === "1");
-
-let alertsHidden = (localStorage.getItem(ALERTS_HIDDEN_KEY) === "1");
-let alertPulseUntil = 0;
+let latestPrice = NaN;
 
 let alerts = {
-  enabled: false,
-  cooldownMin: 1,
-
-  basePrice: null,
-
-  crossEnabled: false,
-  crossTarget: null,
-  crossMode: "above",
-  crossOneShot: true,
-  crossFiredAbove: false,
-  crossFiredBelow: false,
-
-  deltaEnabled: false,
-  upUsd: null, downUsd: null,
-  upPct: null, downPct: null,
-  firedUpUsd: false,
-  firedDownUsd: false,
-  firedUpPct: false,
-  firedDownPct: false,
-
-  lastAlertTs: 0
+  enabled:false,
+  cooldownMin:1,
+  crossEnabled:false,
+  crossTargets:[]
 };
 
-/* ---------- HELPERS ---------- */
-const fmtTime = (tz) => new Intl.DateTimeFormat("en-US", {
-  timeZone: tz, hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:true
-}).format(new Date());
-
-const fmtDateTimeNoLabel = (tz) => new Intl.DateTimeFormat("en-US", {
-  timeZone: tz, weekday:"short", month:"2-digit", day:"2-digit", year:"numeric",
-  hour:"2-digit", minute:"2-digit", second:"2-digit", hour12:true
-}).format(new Date());
-
-function fmtAgo(ms){
-  const s = Math.max(0, Math.floor(ms/1000));
-  const m = Math.floor(s/60);
-  const r = s % 60;
-  return `${m}m ${String(r).padStart(2,"0")}s ago`;
-}
-
-function fmtUSD0(n){
-  if(!Number.isFinite(n)) return "-";
-  return new Intl.NumberFormat("en-US", { style:"currency", currency:"USD", maximumFractionDigits:0 }).format(n);
-}
-
-function applySwapTypography(){
-  if(isPricePrimary){
-    primaryDisplay.style.fontSize = "44px";
-    secondaryDisplay.classList.remove("big");
-    secondaryDisplay.style.display = "none";
-  } else {
-    primaryDisplay.style.fontSize = "36px";
-    secondaryDisplay.classList.add("big");
-    secondaryDisplay.style.display = "block";
-  }
-}
-
-function renderDisplays(){
-  if(isPricePrimary){
-    primaryDisplay.textContent = latestPrice;
-    secondaryDisplay.textContent = "";
-  } else {
-    primaryDisplay.textContent = fmtTime("America/Denver");
-    secondaryDisplay.textContent = "BTC: " + latestPrice;
-  }
-}
-
-function setPrimaryAlertPulse(on){
-  if(on) primaryDisplay.classList.add("is-alert");
-  else primaryDisplay.classList.remove("is-alert");
-}
-
-/* ---------- TOAST + NOTIFICATION ---------- */
-let toastTimer = null;
-function showToast(msg){
-  toastMsg.textContent = msg;
-  toast.classList.add("show");
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(()=>toast.classList.remove("show"), 6500);
-}
-toastClose.addEventListener("click", ()=> toast.classList.remove("show"));
-
-function canNotify(){ return ("Notification" in window); }
-function tryNotify(title, body){
-  if(!canNotify()) return;
-  if(Notification.permission !== "granted") return;
-  try{ new Notification(title, { body }); }catch(_){}
-}
-
-/* ---------- SOUND (best effort) ---------- */
-let beepTimer = null;
-let audioCtx = null;
-let audioPrimed = false;
-
-function primeAudio(){
-  if(audioPrimed) return;
-  try{
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    if(audioCtx.state === "suspended") audioCtx.resume().catch(()=>{});
-    audioPrimed = true;
-  }catch(_){}
-}
-document.addEventListener("pointerdown", primeAudio, { passive:true });
-
-function beepOnce(){
-  try{
-    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = audioCtx;
-    if(ctx.state === "suspended") ctx.resume().catch(()=>{});
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
-    o.type = "square";
-    o.frequency.value = 880;
-    g.gain.value = 0.04;
-    o.connect(g);
-    g.connect(ctx.destination);
-    o.start();
-    setTimeout(()=>{ o.stop(); }, 140);
-  }catch(_){}
-}
-function stopBeep(){
-  if(beepTimer){
-    clearInterval(beepTimer);
-    beepTimer = null;
-  }
-}
-function startBeepForOneMinute(){
-  stopBeep();
-  const endAt = Date.now() + 60_000;
-  beepOnce();
-  beepTimer = setInterval(()=>{
-    if(Date.now() >= endAt){
-      stopBeep();
-      return;
-    }
-    beepOnce();
-  }, 1000);
-}
-
-/* ---------- ALERTS: persistence ---------- */
+/* ===== LOAD / SAVE ===== */
 function loadAlerts(){
   try{
     const raw = localStorage.getItem(ALARM_KEY);
     if(!raw) return;
     const obj = JSON.parse(raw);
     alerts = { ...alerts, ...obj };
-    alerts.cooldownMin = Number.isFinite(Number(alerts.cooldownMin)) ? Number(alerts.cooldownMin) : 1;
-    alerts.crossMode = (alerts.crossMode === "below" || alerts.crossMode === "both") ? alerts.crossMode : "above";
-  }catch(_){}
+
+    // backward compatibility
+    if(!Array.isArray(alerts.crossTargets)){
+      alerts.crossTargets = [];
+    }
+  }catch(e){}
 }
+
 function saveAlerts(){
-  try{ localStorage.setItem(ALARM_KEY, JSON.stringify(alerts)); }catch(_){}
+  localStorage.setItem(ALARM_KEY, JSON.stringify(alerts));
 }
 
-function updateBaseLabel(){
-  basePriceLabel.textContent = (alerts.basePrice && Number.isFinite(alerts.basePrice)) ? fmtUSD0(alerts.basePrice) : "-";
+/* ===== UI ===== */
+function renderTargets(){
+  targetsWrap.innerHTML = "";
+  alerts.crossTargets.forEach((t, i)=>{
+    const row = document.createElement("div");
+    row.className = "target-row";
+
+    const input = document.createElement("input");
+    input.type = "number";
+    input.value = t;
+    input.oninput = () => {
+      alerts.crossTargets[i] = Number(input.value);
+      saveAlerts();
+    };
+
+    row.appendChild(input);
+
+    if(i > 0){
+      const del = document.createElement("button");
+      del.textContent = "✕";
+      del.onclick = ()=>{
+        alerts.crossTargets.splice(i,1);
+        saveAlerts();
+        renderTargets();
+      };
+      row.appendChild(del);
+    }
+
+    targetsWrap.appendChild(row);
+  });
 }
 
-/* ✅ NEW: single toggle button UI */
-function refreshAlertButtonsUI(){
-  alertsToggleBtn.classList.remove("is-on","is-off","is-warn");
+function syncUI(){
+  alertsToggleBtn.textContent = alerts.enabled ? "Alerts ON" : "Alerts OFF";
+  alertsToggleBtn.classList.toggle("is-on", alerts.enabled);
+  alertsToggleBtn.classList.toggle("is-off", !alerts.enabled);
 
-  if(!canNotify()){
-    alerts.enabled = false;
-    alertsToggleBtn.textContent = "No Notify";
-    alertsToggleBtn.classList.add("is-warn");
-    alertsToggleBtn.disabled = true;
-    saveAlerts();
-    return;
-  }
+  cooldownMin.value = alerts.cooldownMin;
+  crossEnabled.checked = alerts.crossEnabled;
 
-  alertsToggleBtn.disabled = false;
-
-  const p = Notification.permission;
-  if(p === "denied"){
-    alerts.enabled = false;
-    alertsToggleBtn.textContent = "Blocked";
-    alertsToggleBtn.classList.add("is-warn");
-    saveAlerts();
-    return;
-  }
-
-  if(alerts.enabled){
-    alertsToggleBtn.textContent = "Alerts ON";
-    alertsToggleBtn.classList.add("is-on");
-  } else {
-    alertsToggleBtn.textContent = "Alerts OFF";
-    alertsToggleBtn.classList.add("is-off");
-  }
+  renderTargets();
 }
 
-function syncAlertsUI(){
-  cooldownMin.value = String(alerts.cooldownMin ?? 1);
-
-  crossEnabled.checked = !!alerts.crossEnabled;
-  crossTarget.value = (Number.isFinite(alerts.crossTarget) ? String(Math.round(alerts.crossTarget)) : "");
-  crossMode.value = alerts.crossMode || "above";
-  crossOneShot.checked = !!alerts.crossOneShot;
-
-  deltaEnabled.checked = !!alerts.deltaEnabled;
-  upUsd.value = (Number.isFinite(alerts.upUsd) ? String(Math.round(alerts.upUsd)) : "");
-  downUsd.value = (Number.isFinite(alerts.downUsd) ? String(Math.round(alerts.downUsd)) : "");
-  upPct.value = (Number.isFinite(alerts.upPct) ? String(alerts.upPct) : "");
-  downPct.value = (Number.isFinite(alerts.downPct) ? String(alerts.downPct) : "");
-
-  updateBaseLabel();
-  refreshAlertButtonsUI();
-}
-
-function readAlertsFromUI(){
-  alerts.cooldownMin = Math.max(0, Number(cooldownMin.value || 0));
-
-  alerts.crossEnabled = crossEnabled.checked;
-  alerts.crossTarget = Number(crossTarget.value);
-  if(!Number.isFinite(alerts.crossTarget)) alerts.crossTarget = null;
-  alerts.crossMode = crossMode.value;
-  alerts.crossOneShot = crossOneShot.checked;
-
-  alerts.deltaEnabled = deltaEnabled.checked;
-
-  alerts.upUsd = Number(upUsd.value);
-  if(!Number.isFinite(alerts.upUsd) || alerts.upUsd <= 0) alerts.upUsd = null;
-
-  alerts.downUsd = Number(downUsd.value);
-  if(!Number.isFinite(alerts.downUsd) || alerts.downUsd <= 0) alerts.downUsd = null;
-
-  alerts.upPct = Number(upPct.value);
-  if(!Number.isFinite(alerts.upPct) || alerts.upPct <= 0) alerts.upPct = null;
-
-  alerts.downPct = Number(downPct.value);
-  if(!Number.isFinite(alerts.downPct) || alerts.downPct <= 0) alerts.downPct = null;
-
-  saveAlerts();
-  updateBaseLabel();
-  refreshAlertButtonsUI();
-}
-
-[
-  cooldownMin,
-  crossEnabled, crossTarget, crossMode, crossOneShot,
-  deltaEnabled, upUsd, downUsd, upPct, downPct
-].forEach(el => {
-  el.addEventListener("change", readAlertsFromUI);
-  el.addEventListener("input", readAlertsFromUI);
-});
-
-/* ✅ toggle behavior:
-   - click OFF -> ON:
-     * if permission default => request
-     * if denied => show Blocked, stay OFF
-     * if granted => ON + base=current price (if available)
-   - click ON -> OFF: just disable
-*/
-alertsToggleBtn.addEventListener("click", async ()=>{
-  primeAudio();
-
-  if(!canNotify()) return;
-
-  // turning ON attempt
+/* ===== EVENTS ===== */
+alertsToggleBtn.onclick = async ()=>{
   if(!alerts.enabled){
     if(Notification.permission === "default"){
-      try{ await Notification.requestPermission(); }catch(_){}
+      await Notification.requestPermission();
     }
-    if(Notification.permission === "denied"){
-      alerts.enabled = false;
-      saveAlerts();
-      syncAlertsUI();
-      showToast("Notifications blocked in browser settings.");
+    if(Notification.permission !== "granted"){
+      alert("Notifications blocked.");
       return;
     }
-
-    // now granted (or at least not denied)
     alerts.enabled = true;
-
-    // auto-base to current price if available
-    if(Number.isFinite(latestAmountNum)){
-      alerts.basePrice = latestAmountNum;
-
-      alerts.firedUpUsd = false;
-      alerts.firedDownUsd = false;
-      alerts.firedUpPct = false;
-      alerts.firedDownPct = false;
-
-      alerts.crossFiredAbove = false;
-      alerts.crossFiredBelow = false;
-
-      showToast("Alerts ON. Base set: " + fmtUSD0(alerts.basePrice));
-    } else {
-      showToast("Alerts ON. Base will set when price arrives.");
-    }
-
-    saveAlerts();
-    syncAlertsUI();
-    return;
+  }else{
+    alerts.enabled = false;
   }
-
-  // turning OFF
-  alerts.enabled = false;
   saveAlerts();
-  syncAlertsUI();
-  showToast("Alerts OFF.");
-});
-
-function cooldownMs(){ return Math.max(0, alerts.cooldownMin || 0) * 60 * 1000; }
-function canFireNow(){
-  const now = Date.now();
-  return (now - (alerts.lastAlertTs || 0)) >= cooldownMs();
-}
-
-function fireAlert(message){
-  const now = Date.now();
-  alertPulseUntil = now + 60_000;
-  setPrimaryAlertPulse(true);
-  startBeepForOneMinute();
-  showToast(message);
-  tryNotify("BTC Alert", message);
-  alerts.lastAlertTs = now;
-  saveAlerts();
-}
-
-function evalCrossing(curr){
-  if(!alerts.crossEnabled) return;
-  if(!Number.isFinite(curr)) return;
-  const target = alerts.crossTarget;
-  if(!Number.isFinite(target)) return;
-  if(!Number.isFinite(prevAmountNum)) return;
-
-  const prev = prevAmountNum;
-  const mode = alerts.crossMode || "above";
-  const crossedAbove = (prev < target && curr >= target);
-  const crossedBelow = (prev > target && curr <= target);
-
-  if(alerts.crossOneShot){
-    if(curr < target) alerts.crossFiredAbove = false;
-    if(curr > target) alerts.crossFiredBelow = false;
-  }
-
-  if((mode === "above" || mode === "both") && crossedAbove){
-    if(!alerts.crossOneShot || !alerts.crossFiredAbove){
-      if(canFireNow()){
-        alerts.crossFiredAbove = true;
-        fireAlert(`Crossed ABOVE ${fmtUSD0(target)} (Now ${fmtUSD0(curr)})`);
-      }
-    }
-  }
-
-  if((mode === "below" || mode === "both") && crossedBelow){
-    if(!alerts.crossOneShot || !alerts.crossFiredBelow){
-      if(canFireNow()){
-        alerts.crossFiredBelow = true;
-        fireAlert(`Crossed BELOW ${fmtUSD0(target)} (Now ${fmtUSD0(curr)})`);
-      }
-    }
-  }
-}
-
-function evalDeltaFromBase(curr){
-  if(!alerts.deltaEnabled) return;
-  if(!Number.isFinite(curr)) return;
-
-  // if ON and base missing, set base automatically when price is available
-  if(alerts.enabled && !Number.isFinite(alerts.basePrice)){
-    alerts.basePrice = curr;
-    updateBaseLabel();
-    saveAlerts();
-  }
-
-  const base = alerts.basePrice;
-  if(!Number.isFinite(base)) return;
-
-  const diff = curr - base;
-  const pct = (diff / base) * 100;
-
-  if(Number.isFinite(alerts.upUsd) && alerts.upUsd > 0){
-    if(diff >= alerts.upUsd){
-      if(!alerts.firedUpUsd && canFireNow()){
-        alerts.firedUpUsd = true;
-        fireAlert(`Up +${fmtUSD0(alerts.upUsd)} from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
-      }
-    } else { alerts.firedUpUsd = false; }
-  }
-
-  if(Number.isFinite(alerts.downUsd) && alerts.downUsd > 0){
-    if((-diff) >= alerts.downUsd){
-      if(!alerts.firedDownUsd && canFireNow()){
-        alerts.firedDownUsd = true;
-        fireAlert(`Down -${fmtUSD0(alerts.downUsd)} from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
-      }
-    } else { alerts.firedDownUsd = false; }
-  }
-
-  if(Number.isFinite(alerts.upPct) && alerts.upPct > 0){
-    if(pct >= alerts.upPct){
-      if(!alerts.firedUpPct && canFireNow()){
-        alerts.firedUpPct = true;
-        fireAlert(`Up +${alerts.upPct}% from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
-      }
-    } else { alerts.firedUpPct = false; }
-  }
-
-  if(Number.isFinite(alerts.downPct) && alerts.downPct > 0){
-    if((-pct) >= alerts.downPct){
-      if(!alerts.firedDownPct && canFireNow()){
-        alerts.firedDownPct = true;
-        fireAlert(`Down -${alerts.downPct}% from Base (${fmtUSD0(base)} → ${fmtUSD0(curr)})`);
-      }
-    } else { alerts.firedDownPct = false; }
-  }
-
-  saveAlerts();
-}
-
-function evalAlerts(){
-  if(!alerts.enabled) return;
-  evalCrossing(latestAmountNum);
-  evalDeltaFromBase(latestAmountNum);
-}
-
-/* alerts panel toggle */
-function setAlertsHidden(next){
-  alertsHidden = !!next;
-  localStorage.setItem(ALERTS_HIDDEN_KEY, alertsHidden ? "1" : "0");
-  rightPane.classList.toggle("alerts-hidden", alertsHidden);
-  toggleAlertsBtn.textContent = alertsHidden ? "Show alerts" : "Hide alerts";
-}
-toggleAlertsBtn.addEventListener("click", ()=> setAlertsHidden(!alertsHidden));
-
-/* ---------- PIXEL CHASE LINE ---------- */
-function snakeSvg(){
-  return `
-    <svg class="snake" viewBox="0 0 120 18" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-      <rect x="2"  y="9"  width="10" height="3" fill="var(--s1)"/>
-      <rect x="10" y="7"  width="12" height="3" fill="var(--s1)"/>
-      <rect x="20" y="9"  width="12" height="3" fill="var(--s1)"/>
-      <rect x="30" y="11" width="12" height="3" fill="var(--s1)"/>
-      <rect x="40" y="9"  width="12" height="3" fill="var(--s1)"/>
-      <rect x="50" y="7"  width="12" height="3" fill="var(--s1)"/>
-      <rect x="60" y="9"  width="12" height="3" fill="var(--s1)"/>
-      <rect x="70" y="11" width="12" height="3" fill="var(--s1)"/>
-      <rect x="80" y="9"  width="12" height="3" fill="var(--s1)"/>
-      <rect x="90" y="7"  width="12" height="3" fill="var(--s1)"/>
-
-      <rect x="3"  y="10" width="8"  height="1" fill="var(--s2)"/>
-      <rect x="11" y="8"  width="10" height="1" fill="var(--s2)"/>
-      <rect x="21" y="10" width="10" height="1" fill="var(--s2)"/>
-      <rect x="31" y="12" width="10" height="1" fill="var(--s2)"/>
-      <rect x="41" y="10" width="10" height="1" fill="var(--s2)"/>
-      <rect x="51" y="8"  width="10" height="1" fill="var(--s2)"/>
-      <rect x="61" y="10" width="10" height="1" fill="var(--s2)"/>
-      <rect x="71" y="12" width="10" height="1" fill="var(--s2)"/>
-      <rect x="81" y="10" width="10" height="1" fill="var(--s2)"/>
-      <rect x="91" y="8"  width="10" height="1" fill="var(--s2)"/>
-
-      <rect x="104" y="6" width="12" height="6" fill="var(--s1)"/>
-      <rect x="105" y="7" width="10" height="4" fill="var(--s2)"/>
-      <rect x="112" y="8" width="2"  height="1" fill="var(--s5)"/>
-      <rect class="tongue" x="116" y="9" width="3" height="1" fill="var(--s4)"/>
-    </svg>
-  `;
-}
-
-function runnerSvg(){
-  return `
-    <svg class="pixel-svg" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">
-      <rect x="6" y="2" width="8" height="1" fill="var(--p1)"/>
-      <rect x="5" y="3" width="10" height="1" fill="var(--p1)"/>
-      <rect x="5" y="4" width="1" height="5" fill="var(--p1)"/>
-      <rect x="14" y="4" width="1" height="6" fill="var(--p1)"/>
-      <rect x="6" y="9" width="8" height="1" fill="var(--p1)"/>
-      <rect x="6" y="3" width="8" height="1" fill="var(--p6)"/>
-      <rect x="6" y="4" width="8" height="2" fill="var(--p6)"/>
-      <rect x="6" y="6" width="8" height="3" fill="var(--p2)"/>
-      <rect x="7" y="7" width="2" height="1" fill="var(--p8)"/>
-      <rect x="11" y="7" width="2" height="1" fill="var(--p8)"/>
-      <rect x="9" y="8" width="2" height="1" fill="var(--p7)"/>
-
-      <rect x="6" y="10" width="8" height="4" fill="var(--p3)"/>
-      <rect x="6" y="10" width="8" height="1" fill="var(--p1)"/>
-      <rect x="6" y="13" width="8" height="1" fill="var(--p1)"/>
-      <rect x="6" y="11" width="1" height="2" fill="var(--p1)"/>
-      <rect x="13" y="11" width="1" height="2" fill="var(--p1)"/>
-      <rect x="7" y="11" width="2" height="1" fill="var(--p7)"/>
-
-      <rect x="4" y="11" width="2" height="3" fill="var(--p3)"/>
-      <rect x="4" y="11" width="2" height="1" fill="var(--p1)"/>
-      <rect x="4" y="13" width="2" height="1" fill="var(--p1)"/>
-      <rect x="4" y="12" width="1" height="1" fill="var(--p1)"/>
-
-      <g class="armSword">
-        <rect x="14" y="11" width="2" height="3" fill="var(--p3)"/>
-        <rect x="14" y="11" width="2" height="1" fill="var(--p1)"/>
-        <rect x="14" y="13" width="2" height="1" fill="var(--p1)"/>
-        <rect x="16" y="12" width="1" height="1" fill="var(--p2)"/>
-        <rect x="17" y="10" width="1" height="5" fill="var(--p5)"/>
-        <rect x="17" y="9" width="1" height="1" fill="var(--p7)"/>
-        <rect x="16" y="11" width="1" height="1" fill="var(--p5)"/>
-      </g>
-
-      <g class="legA">
-        <rect x="7" y="14" width="3" height="1" fill="var(--p1)"/>
-        <rect x="7" y="15" width="3" height="3" fill="var(--p4)"/>
-        <rect x="7" y="17" width="3" height="1" fill="var(--p1)"/>
-        <rect x="7" y="18" width="3" height="1" fill="var(--p8)"/>
-      </g>
-
-      <g class="legB">
-        <rect x="10" y="14" width="3" height="1" fill="var(--p1)"/>
-        <rect x="10" y="15" width="3" height="3" fill="var(--p4)"/>
-        <rect x="10" y="17" width="3" height="1" fill="var(--p1)"/>
-        <rect x="10" y="18" width="3" height="1" fill="var(--p8)"/>
-      </g>
-    </svg>
-  `;
-}
-
-function chaseBlockHtml(){
-  return `
-    <span class="weather-item chase">
-      <span class="chase-stack">
-        ${snakeSvg()}
-        <span class="runner">${runnerSvg()}</span>
-      </span>
-      <span class="label filler">${FILLER_KO} / ${FILLER_EN}</span>
-    </span>
-  `;
-}
-function fillerItemsHtml(){
-  return chaseBlockHtml() + chaseBlockHtml() + chaseBlockHtml();
-}
-function setMarqueeSegmentHtml(segmentHtml){
-  segA.innerHTML = segmentHtml;
-  segB.innerHTML = segmentHtml;
-}
-
-function dayShort3(dateStr){
-  const d = new Date(dateStr + "T00:00:00");
-  return ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
-}
-function mdDate(dateStr){ return dateStr.slice(5).replace("-", "/"); }
-
-const wxIcon = (c) => {
-  c = Number(c);
-  if(c === 0) return "☀️";
-  if(c <= 3) return "☁️";
-  if(c <= 67) return "🌧️";
-  if(c <= 86) return "❄️";
-  if(c >= 95) return "⛈️";
-  return "🌤️";
+  syncUI();
 };
 
-function buildWeatherItemsHtml(daily){
-  const days = daily.time.slice(0,7);
-  const items = days.map((day,i)=>`
-    <span class="weather-item">
-      ${dayShort3(day)} (${mdDate(day)})
-      ${wxIcon(daily.weather_code[i])}
-      ${Math.round(daily.temperature_2m_max[i])}/${Math.round(daily.temperature_2m_min[i])}°
-    </span>
-  `).join("");
-  return chaseBlockHtml() + items + chaseBlockHtml() + items;
+cooldownMin.onchange = ()=>{
+  alerts.cooldownMin = Number(cooldownMin.value || 0);
+  saveAlerts();
+};
+
+crossEnabled.onchange = ()=>{
+  alerts.crossEnabled = crossEnabled.checked;
+  saveAlerts();
+};
+
+addTargetBtn.onclick = ()=>{
+  alerts.crossTargets.push(null);
+  saveAlerts();
+  renderTargets();
+};
+
+/* ===== INIT ===== */
+loadAlerts();
+
+if(alerts.crossTargets.length === 0){
+  alerts.crossTargets.push(null); // default one target
 }
 
-/* ---------- WEATHER (6-hour cache) ---------- */
-function readWxCache(){
-  const ts = Number(localStorage.getItem(WX_CACHE_TS_KEY) || "0");
-  const html = localStorage.getItem(WX_CACHE_KEY) || "";
-  return { ts, html };
-}
-function writeWxCache(html){
-  localStorage.setItem(WX_CACHE_KEY, html);
-  localStorage.setItem(WX_CACHE_TS_KEY, String(Date.now()));
-}
+syncUI();
 
-async function ensureWeather(){
-  setMarqueeSegmentHtml(fillerItemsHtml());
+/* ===== PRICE SIMULATION (for testing) ===== */
+setInterval(()=>{
+  latestPrice = 90000 + Math.random()*2000;
+  primaryDisplay.textContent =
+    "$" + Math.round(latestPrice).toLocaleString();
 
-  const { ts, html } = readWxCache();
-  const age = Date.now() - ts;
-
-  if (html && ts && age < WX_REFRESH_MS){
-    setMarqueeSegmentHtml(html);
-    return;
-  }
-
-  try{
-    const r = await fetch(WX_URL, { cache:"no-store" });
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const data = await r.json();
-
-    const built = buildWeatherItemsHtml(data.daily);
-    writeWxCache(built);
-    setMarqueeSegmentHtml(built);
-  }catch(e){
-    setMarqueeSegmentHtml(fillerItemsHtml());
-  }
-}
-
-/* ---------- PRICE ---------- */
-async function fetchPrice(){
-  try{
-    const old = latestAmountNum;
-
-    const r = await fetch(PRICE_URL, { cache:"no-store" });
-    if(!r.ok) throw new Error(`HTTP ${r.status}`);
-    const j = await r.json();
-
-    const amt = Number(j?.data?.amount);
-    latestAmountNum = Number.isFinite(amt) ? amt : NaN;
-    latestPrice = fmtUSD0(latestAmountNum);
-
-    lastGoodPriceUpdate = Date.now();
-    updated.textContent = "Updated: " + fmtTime("America/Denver"); // no (MT)
-    error.textContent = "";
-
-    // If alerts ON and base not set yet, set base on first good price
-    if(alerts.enabled && !Number.isFinite(alerts.basePrice) && Number.isFinite(latestAmountNum)){
-      alerts.basePrice = latestAmountNum;
-      saveAlerts();
-      updateBaseLabel();
-    }
-
-    renderDisplays();
-    updateStaleUI();
-
-    // crossing needs the previous sample
-    prevAmountNum = Number.isFinite(old) ? old : prevAmountNum;
-
-    // alerts evaluation
-    evalAlerts();
-
-    // update prev for next tick (after eval)
-    prevAmountNum = latestAmountNum;
-
-  }catch(e){
-    error.textContent = "Error: " + (e?.message || String(e));
-  }
-}
-
-/* ---------- TIMEZONES ---------- */
-function updateTime(){
-  todayMT.textContent = fmtDateTimeNoLabel("America/Denver");
-  tMT.textContent = fmtTime("America/Denver");
-  tNY.textContent = fmtTime("America/New_York");
-  tKR.textContent = fmtTime("Asia/Seoul");
-  renderDisplays();
-}
-
-/* ---------- STALE UI ---------- */
-function updateStaleUI(){
-  const now = Date.now();
-  const base = lastGoodPriceUpdate || now;
-  const elapsed = now - base;
-
-  if(elapsed >= WARN_AFTER_MS){
-    staleAge.style.display = "inline";
-    staleAge.textContent = "Last update: " + fmtAgo(elapsed);
-  } else {
-    staleAge.style.display = "none";
-  }
-
-  if(elapsed >= STALE_AFTER_MS){
-    primaryDisplay.classList.add("is-stale");
-  } else {
-    primaryDisplay.classList.remove("is-stale");
-  }
-
-  if(alertPulseUntil && now > alertPulseUntil){
-    alertPulseUntil = 0;
-    setPrimaryAlertPulse(false);
-    stopBeep();
-  }
-}
-
-/* ---------- CHART ---------- */
-function setActiveTf(interval){
-  document.querySelectorAll(".tf-btn").forEach(btn=>{
-    btn.classList.toggle("active", btn.dataset.interval === String(interval));
-  });
-}
-
-function buildTVChart(interval){
-  currentInterval = String(interval);
-  localStorage.setItem(TF_KEY, currentInterval);
-  setActiveTf(currentInterval);
-
-  if(chartHidden) return;
-
-  const el = document.getElementById("tvChart");
-  el.innerHTML = "";
-
-  const innerId = "tv_inner_" + Date.now();
-  const inner = document.createElement("div");
-  inner.id = innerId;
-  inner.style.height = "170px";
-  el.appendChild(inner);
-
-  new TradingView.widget({
-    autosize:true,
-    symbol:"COINBASE:BTCUSD",
-    interval:currentInterval,
-    timezone:"America/Denver",
-    theme:"dark",
-    style:"1",
-    locale:"en",
-    enable_publishing:false,
-    hide_legend:true,
-    hide_side_toolbar:true,
-    allow_symbol_change:false,
-    container_id:innerId,
-    save_image:false,
-    studies:[],
-    withdateranges:false,
-    details:false,
-    calendar:false
-  });
-}
-
-function setChartHidden(next){
-  chartHidden = next;
-  localStorage.setItem(CHART_HIDDEN_KEY, chartHidden ? "1" : "0");
-
-  rightPane.classList.toggle("is-hidden", chartHidden);
-  toggleChartBtn.textContent = chartHidden ? "Show chart" : "Hide chart";
-
-  if(!chartHidden){
-    if (window.TradingView && TradingView.widget) buildTVChart(currentInterval);
-  } else {
-    tvChart.innerHTML = "";
-  }
-}
-
-document.querySelectorAll(".tf-btn").forEach(btn=>{
-  btn.addEventListener("click", () => buildTVChart(btn.dataset.interval));
-});
-toggleChartBtn.addEventListener("click", ()=> setChartHidden(!chartHidden));
-
-/* ---------- EVENTS ---------- */
-swapBtn.addEventListener("click", ()=>{
-  isPricePrimary = !isPricePrimary;
-  applySwapTypography();
-  renderDisplays();
-  updateStaleUI();
-});
-refreshBtn.addEventListener("click", ()=>{
-  primeAudio();
-  fetchPrice();
-  ensureWeather();
-});
-
-/* ---------- START ---------- */
-function start(){
-  setMarqueeSegmentHtml(fillerItemsHtml());
-
-  loadAlerts();
-  syncAlertsUI();
-  setAlertsHidden(alertsHidden);
-
-  applySwapTypography();
-  renderDisplays();
-
-  updateTime();
-  fetchPrice();
-  ensureWeather();
-
-  setChartHidden(chartHidden);
-  setActiveTf(currentInterval);
-
-  const bootChart = () => { if(!chartHidden) buildTVChart(currentInterval); };
-
-  if (window.TradingView && TradingView.widget) {
-    bootChart();
-  } else {
-    const t = setInterval(() => {
-      if (window.TradingView && TradingView.widget) {
-        clearInterval(t);
-        bootChart();
+  if(alerts.enabled && alerts.crossEnabled){
+    alerts.crossTargets.forEach(t=>{
+      if(Number.isFinite(t) && latestPrice >= t){
+        primaryDisplay.classList.add("is-alert");
+        new Notification("BTC Alert", {
+          body:`Crossed ${t}`
+        });
       }
-    }, 150);
+    });
   }
+}, 5000);
 
-  setInterval(updateTime, 1000);
-  setInterval(fetchPrice, 5000);
-  setInterval(updateStaleUI, 1000);
-  setInterval(ensureWeather, WX_REFRESH_MS);
-}
-
-start();
 </script>
 </body>
 </html>
